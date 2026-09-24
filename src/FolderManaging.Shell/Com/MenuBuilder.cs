@@ -108,8 +108,8 @@ internal static class MenuBuilder
                     VisualSeparatorTitle,
                     "noop",
                     token: null,
-                    menuIconReference: "imageres.dll,-5323",
-                    disabled: true));
+                    disabled: true,
+                    omitIcon: true));
                 pendingSeparator = false;
             }
         }

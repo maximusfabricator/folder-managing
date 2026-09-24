@@ -9,15 +9,23 @@
                 <ui:ControlsDictionary />
             </ResourceDictionary.MergedDictionaries>
 
-            <!--
-              Code/pages often create plain TextBlocks that keep SystemColors.ControlText (black).
-              Force WPF-UI theme brushes so light text shows on dark and dark text on light.
-            -->
-            <Style TargetType="{x:Type TextBlock}">
-                <Setter Property="Foreground" Value="{DynamicResource TextFillColorPrimaryBrush}" />
-            </Style>
-            <Style TargetType="{x:Type ui:TextBlock}">
-                <Setter Property="Foreground" Value="{DynamicResource TextFillColorPrimaryBrush}" />
+            <!-- Fallbacks; AppThemeService replaces these with shades of the Windows accent. -->
+            <SolidColorBrush x:Key="FmCautionBackground" Color="#F7630C" />
+            <SolidColorBrush x:Key="FmCautionBackgroundPointerOver" Color="#E6F7630C" />
+            <SolidColorBrush x:Key="FmCautionBackgroundPressed" Color="#CCF7630C" />
+            <SolidColorBrush x:Key="FmCautionForeground" Color="#000000" />
+            <SolidColorBrush x:Key="FmCautionForegroundPressed" Color="#CC000000" />
+
+            <Style TargetType="{x:Type ui:Button}" BasedOn="{StaticResource DefaultUiButtonStyle}">
+                <Style.Triggers>
+                    <Trigger Property="Appearance" Value="Caution">
+                        <Setter Property="Background" Value="{DynamicResource FmCautionBackground}" />
+                        <Setter Property="MouseOverBackground" Value="{DynamicResource FmCautionBackgroundPointerOver}" />
+                        <Setter Property="PressedBackground" Value="{DynamicResource FmCautionBackgroundPressed}" />
+                        <Setter Property="Foreground" Value="{DynamicResource FmCautionForeground}" />
+                        <Setter Property="PressedForeground" Value="{DynamicResource FmCautionForegroundPressed}" />
+                    </Trigger>
+                </Style.Triggers>
             </Style>
         </ResourceDictionary>
     </Application.Resources>

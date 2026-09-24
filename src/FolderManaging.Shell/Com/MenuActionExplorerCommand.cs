@@ -16,6 +16,7 @@ internal sealed class MenuActionExplorerCommand : Shell32.IExplorerCommand
     private readonly string? _menuIconReference;
     private readonly Shell32.EXPCMDFLAGS _flags;
     private readonly bool _disabled;
+    private readonly bool _omitIcon;
 
     internal MenuActionExplorerCommand(
         string verbId,
@@ -24,7 +25,8 @@ internal sealed class MenuActionExplorerCommand : Shell32.IExplorerCommand
         string? token,
         string? menuIconReference = null,
         Shell32.EXPCMDFLAGS flags = Shell32.EXPCMDFLAGS.ECF_DEFAULT,
-        bool disabled = false)
+        bool disabled = false,
+        bool omitIcon = false)
     {
         _verbId = verbId;
         _title = title;
@@ -33,6 +35,7 @@ internal sealed class MenuActionExplorerCommand : Shell32.IExplorerCommand
         _menuIconReference = menuIconReference;
         _flags = flags;
         _disabled = disabled;
+        _omitIcon = omitIcon;
     }
 
     public HRESULT GetTitle(Shell32.IShellItemArray? psiItemArray, out string? ppszName)
@@ -43,14 +46,19 @@ internal sealed class MenuActionExplorerCommand : Shell32.IExplorerCommand
 
     public HRESULT GetIcon(Shell32.IShellItemArray? psiItemArray, out string? ppszIcon)
     {
+        if (_omitIcon)
+        {
+            // Documented "no icon": null + E_NOTIMPL. (S_OK/S_FALSE with null crashes Win11 FileExplorer.)
+            ppszIcon = null;
+            return HRESULT.E_NOTIMPL;
+        }
+
         if (!string.IsNullOrEmpty(_menuIconReference))
         {
             ppszIcon = _menuIconReference;
             return HRESULT.S_OK;
         }
 
-        // Must not return S_OK/S_FALSE with a null string — Win11 FileExplorer AV's on that.
-        // E_NOTIMPL + null is the documented "no icon" contract; also keep a safe stock fallback.
         ppszIcon = "imageres.dll,-3";
         return HRESULT.S_OK;
     }

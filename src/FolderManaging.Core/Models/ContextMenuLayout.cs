@@ -109,8 +109,8 @@ public sealed class ContextMenuLayout
             var kind = e.Kind.Trim().ToLowerInvariant();
             if (kind == ContextMenuItemKinds.Separator)
             {
-                // One visual gap is enough — Win11 submenu separators are rendered as a single dim line item.
-                if (result.Entries.Count == 0 || result.Entries[^1].Kind == ContextMenuItemKinds.Separator)
+                // Keep at most one separator in a row. Leading/trailing are OK (shell ignores orphan edges).
+                if (result.Entries.Count > 0 && result.Entries[^1].Kind == ContextMenuItemKinds.Separator)
                     continue;
                 result.Entries.Add(new ContextMenuEntry { Kind = ContextMenuItemKinds.Separator, Visible = true });
                 continue;
@@ -127,8 +127,8 @@ public sealed class ContextMenuLayout
             });
         }
 
-        while (result.Entries.Count > 0 && result.Entries[^1].Kind == ContextMenuItemKinds.Separator)
-            result.Entries.RemoveAt(result.Entries.Count - 1);
+        // Do NOT strip trailing separators here — "Add separator" appends at the end; removing them
+        // made the button look broken. MenuBuilder already ignores a trailing pending separator.
 
         foreach (var d in defaults.Entries.Where(d => d.Kind != ContextMenuItemKinds.Separator && !seen.Contains(d.Kind)))
             result.Entries.Add(d.Clone());
