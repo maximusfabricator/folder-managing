@@ -95,13 +95,19 @@ New-Item -ItemType Directory -Force -Path (Split-Path $outMsix) | Out-Null
 
 Write-Host "Publishing Shell -> $layout"
 dotnet publish (Join-Path $RepoRoot "src\FolderManaging.Shell\FolderManaging.Shell.csproj") -c $Configuration -r win-x64 --self-contained false -p:Platform=x64 -o $layout
+if ($LASTEXITCODE -ne 0) { throw "dotnet publish Shell failed with exit $LASTEXITCODE" }
 
 Write-Host "Publishing CLI -> $layout"
 dotnet publish (Join-Path $RepoRoot "src\FolderManaging.Cli\FolderManaging.Cli.csproj") -c $Configuration -r win-x64 --self-contained false -o $layout
+if ($LASTEXITCODE -ne 0) { throw "dotnet publish CLI failed with exit $LASTEXITCODE" }
 
 Write-Host "Publishing Companion -> $layout"
 dotnet publish (Join-Path $RepoRoot "src\FolderManaging.Companion\FolderManaging.Companion.csproj") -c $Configuration -r win-x64 --self-contained false -o $layout
-
+if ($LASTEXITCODE -ne 0) { throw "dotnet publish Companion failed with exit $LASTEXITCODE" }
+$companionExe = Join-Path $layout "FolderManaging.Companion.exe"
+if (-not (Test-Path -LiteralPath $companionExe)) {
+    throw "Companion publish succeeded but FolderManaging.Companion.exe is missing from $layout"
+}
 Write-Host "Copying manifest"
 Copy-Item -Force (Join-Path $RepoRoot "sparse\AppxManifest.xml") (Join-Path $layout "AppxManifest.xml")
 

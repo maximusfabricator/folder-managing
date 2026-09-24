@@ -64,8 +64,35 @@ public partial class ContextMenuPage : System.Windows.Controls.UserControl
 
     void OnAddSeparatorClick(object sender, RoutedEventArgs e)
     {
-        _layout.Entries.Add(new ContextMenuEntry { Kind = ContextMenuItemKinds.Separator });
-        CommitLayout("add separator");
+        var sep = new ContextMenuEntry { Kind = ContextMenuItemKinds.Separator };
+
+        // Prefer appending. If the list already ends with a separator (would be collapsed as duplicate),
+        // insert into the first gap between two content blocks that has no separator yet.
+        if (_layout.Entries.Count == 0 || _layout.Entries[^1].Kind != ContextMenuItemKinds.Separator)
+        {
+            _layout.Entries.Add(sep);
+            CommitLayout("add separator");
+            return;
+        }
+
+        for (var i = 0; i < _layout.Entries.Count - 1; i++)
+        {
+            if (_layout.Entries[i].Kind == ContextMenuItemKinds.Separator)
+                continue;
+            if (_layout.Entries[i + 1].Kind != ContextMenuItemKinds.Separator)
+            {
+                _layout.Entries.Insert(i + 1, sep);
+                CommitLayout("add separator");
+                return;
+            }
+        }
+
+        System.Windows.MessageBox.Show(
+            Window.GetWindow(this),
+            "Между всеми блоками уже есть разделители.\nПередвинь существующий стрелками ↑↓ или удали лишний.",
+            "Контекстное меню",
+            System.Windows.MessageBoxButton.OK,
+            System.Windows.MessageBoxImage.Information);
     }
 
     void OnResetMenuClick(object sender, RoutedEventArgs e)
@@ -253,7 +280,7 @@ public partial class ContextMenuPage : System.Windows.Controls.UserControl
                 var n => $"Сейчас: {n} — каждая отдельной строкой.",
             },
             ContextMenuItemKinds.Settings => "Открывает это приложение.",
-            ContextMenuItemKinds.Separator => "В ПКМ появится неактивная строка «────────» (настоящие линии Win11 в подменю не рисует).",
+            ContextMenuItemKinds.Separator => "В ПКМ — неактивная строка «────────» без иконки. В конце списка в Проводнике не видна — поставь её между блоками стрелками.",
             _ => string.Empty,
         };
     }
