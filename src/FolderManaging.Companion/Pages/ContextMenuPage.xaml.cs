@@ -253,7 +253,7 @@ public partial class ContextMenuPage : System.Windows.Controls.UserControl
                 var n => $"Сейчас: {n} — каждая отдельной строкой.",
             },
             ContextMenuItemKinds.Settings => "Открывает это приложение.",
-            ContextMenuItemKinds.Separator => "В новом меню Windows 11 разделители в подменю не поддерживаются (и могут ронять Проводник) — в ПКМ не показываются. Порядок групп всё равно сохраняется.",
+            ContextMenuItemKinds.Separator => "В ПКМ появится неактивная строка «────────» (настоящие линии Win11 в подменю не рисует).",
             _ => string.Empty,
         };
     }

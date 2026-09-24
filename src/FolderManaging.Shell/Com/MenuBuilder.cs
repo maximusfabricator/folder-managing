@@ -9,6 +9,12 @@ namespace FolderManaging.Shell.Com;
 
 internal static class MenuBuilder
 {
+    /// <summary>
+    /// Win11 ignores ECF_ISSEPARATOR in nested modern menus. A disabled line-item is the visible stand-in.
+    /// Icon must always be a non-null path — null GetIcon crashed Explorer previously.
+    /// </summary>
+    const string VisualSeparatorTitle = "──────────────";
+
     static readonly (string Name, string Hex)[] SystemPalette =
     {
         ("Red", "E53935"),
@@ -44,16 +50,21 @@ internal static class MenuBuilder
         var doc = MenuStateReader.GetMerged();
         var layout = doc.GetContextMenuLayout();
         var list = new List<Shell32.IExplorerCommand>();
+        var separatorIndex = 0;
+        var pendingSeparator = false;
 
         foreach (var entry in layout.Entries)
         {
             if (!entry.Visible)
                 continue;
 
-            // Win11 modern nested menus crash or ignore real separators; skip layout separators in the shell menu.
             if (entry.Kind == ContextMenuItemKinds.Separator)
+            {
+                pendingSeparator = true;
                 continue;
+            }
 
+            var beforeCount = list.Count;
             var label = string.IsNullOrWhiteSpace(entry.Label)
                 ? ContextMenuItemKinds.DefaultLabel(entry.Kind)
                 : entry.Label;
@@ -88,6 +99,18 @@ internal static class MenuBuilder
                 case ContextMenuItemKinds.Settings:
                     list.Add(new MenuActionExplorerCommand("settings", label, "settings", token: null));
                     break;
+            }
+
+            if (pendingSeparator && list.Count > beforeCount)
+            {
+                list.Insert(beforeCount, new MenuActionExplorerCommand(
+                    $"sep-{separatorIndex++}",
+                    VisualSeparatorTitle,
+                    "noop",
+                    token: null,
+                    menuIconReference: "imageres.dll,-5323",
+                    disabled: true));
+                pendingSeparator = false;
             }
         }
 

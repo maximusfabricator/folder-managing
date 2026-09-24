@@ -13,8 +13,11 @@
         </Grid.RowDefinitions>
 
         <StackPanel Grid.Row="0">
-            <TextBlock FontSize="28" FontWeight="SemiBold" Text="Контекстное меню" />
-            <TextBlock Margin="0,4,0,0" Opacity="0.65" TextWrapping="Wrap"
+            <TextBlock FontSize="28" FontWeight="SemiBold"
+                       Foreground="{DynamicResource TextFillColorPrimaryBrush}"
+                       Text="Контекстное меню" />
+            <TextBlock Margin="0,4,0,0" Opacity="0.85" TextWrapping="Wrap"
+                       Foreground="{DynamicResource TextFillColorSecondaryBrush}"
                        Text="Собери меню правого клика под себя: включай и выключай пункты, меняй порядок стрелками, переименовывай, добавляй разделители. Изменения применяются сразу — просто кликни правой кнопкой по папке ещё раз." />
         </StackPanel>
 
@@ -26,18 +29,23 @@
                     <ColumnDefinition Width="Auto" />
                     <ColumnDefinition Width="*" />
                 </Grid.ColumnDefinitions>
-                <ui:SymbolIcon Grid.Column="0" Margin="0,0,12,0" VerticalAlignment="Top" FontSize="18" Symbol="Info24" />
-                <TextBlock Grid.Column="1" FontSize="12" Opacity="0.8" TextWrapping="Wrap"
+                <ui:SymbolIcon Grid.Column="0" Margin="0,0,12,0" VerticalAlignment="Top" FontSize="18" Symbol="Info24"
+                               Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
+                <TextBlock Grid.Column="1" FontSize="12" Opacity="0.95" TextWrapping="Wrap"
                            Foreground="{DynamicResource TextFillColorSecondaryBrush}"
-                           Text="Windows 11 в подменю не рисует настоящие разделители — вместо них ставится серая линия ────────. У приложения один пункт меню: если пунктов два и больше, Windows сама складывает их в группу «Folder Managing»." />
+                           Text="Windows 11 в подменю не умеет настоящие разделители — вместо них ставится неактивная строка «────────». У приложения один пункт меню: если пунктов два и больше, Windows сама складывает их в группу «Folder Managing»." />
             </Grid>
         </Border>
 
         <ui:CardControl Grid.Row="2" Margin="0,12,0,0" Padding="16,12">
             <ui:CardControl.Header>
                 <StackPanel>
-                    <TextBlock FontSize="14" FontWeight="SemiBold" Text="Название пункта в меню" />
-                    <TextBlock Margin="0,2,0,0" FontSize="12" Opacity="0.65" Text="То, что видно сразу после правого клика." />
+                    <TextBlock FontSize="14" FontWeight="SemiBold"
+                               Foreground="{DynamicResource TextFillColorPrimaryBrush}"
+                               Text="Название пункта в меню" />
+                    <TextBlock Margin="0,2,0,0" FontSize="12" Opacity="0.85"
+                               Foreground="{DynamicResource TextFillColorSecondaryBrush}"
+                               Text="То, что видно сразу после правого клика." />
                 </StackPanel>
             </ui:CardControl.Header>
             <ui:TextBox x:Name="RootTitleBox" Width="260" PlaceholderText="Folder Manager"
@@ -59,8 +67,12 @@
                     Background="{DynamicResource CardBackgroundFillColorDefaultBrush}"
                     BorderBrush="{DynamicResource CardStrokeColorDefaultBrush}" BorderThickness="1">
                 <StackPanel>
-                    <TextBlock FontSize="12" Opacity="0.65" Text="Предпросмотр" />
-                    <TextBlock x:Name="PreviewRootTitle" Margin="0,8,0,0" FontSize="14" FontWeight="SemiBold" Text="Folder Manager  ›" />
+                    <TextBlock FontSize="12" Opacity="0.85"
+                               Foreground="{DynamicResource TextFillColorSecondaryBrush}"
+                               Text="Предпросмотр" />
+                    <TextBlock x:Name="PreviewRootTitle" Margin="0,8,0,0" FontSize="14" FontWeight="SemiBold"
+                               Foreground="{DynamicResource TextFillColorPrimaryBrush}"
+                               Text="Folder Manager  ›" />
                     <Border Margin="0,8,0,0" Padding="6" CornerRadius="6"
                             Background="{DynamicResource SolidBackgroundFillColorBaseBrush}"
                             BorderBrush="{DynamicResource CardStrokeColorDefaultBrush}" BorderThickness="1">
@@ -68,7 +80,8 @@
                             <StackPanel x:Name="PreviewPanel" />
                         </ScrollViewer>
                     </Border>
-                    <TextBlock x:Name="PreviewCount" Margin="0,8,0,0" FontSize="12" Opacity="0.6" TextWrapping="Wrap" />
+                    <TextBlock x:Name="PreviewCount" Margin="0,8,0,0" FontSize="12" Opacity="0.85" TextWrapping="Wrap"
+                               Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
                 </StackPanel>
             </Border>
         </Grid>
