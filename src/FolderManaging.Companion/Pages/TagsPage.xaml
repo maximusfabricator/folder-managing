@@ -1,0 +1,82 @@
+<UserControl x:Class="FolderManaging.Companion.Pages.TagsPage"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
+             xmlns:models="clr-namespace:FolderManaging.Core.Models;assembly=FolderManaging.Core"
+             Loaded="OnLoaded">
+    <Grid Margin="36,24,36,24">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
+        <StackPanel Grid.Row="0">
+            <TextBlock FontSize="28" FontWeight="SemiBold" Text="Метки" />
+            <TextBlock Margin="0,4,0,0" Opacity="0.65" TextWrapping="Wrap"
+                       Text="Текстовые метки для пунктов «Tag — …» в контекстном меню Проводника." />
+        </StackPanel>
+
+        <ui:Card Grid.Row="1" Margin="0,16,0,12" Padding="16,12">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+                <ui:SymbolIcon Grid.Column="0" Margin="0,0,12,0" VerticalAlignment="Center"
+                               FontSize="20" Symbol="Tag24" />
+                <ui:TextBox x:Name="NewTagName" Grid.Column="1"
+                            PlaceholderText="Новая метка (название)"
+                            KeyDown="OnNewTagKeyDown" />
+                <ui:Button Grid.Column="2" Margin="8,0,0,0"
+                           Appearance="Primary"
+                           Icon="{ui:SymbolIcon Symbol=Add24}"
+                           Content="Добавить"
+                           Click="OnAddTagClick" />
+            </Grid>
+        </ui:Card>
+
+        <ScrollViewer Grid.Row="2" VerticalScrollBarVisibility="Auto">
+            <ItemsControl x:Name="TagItems">
+                <ItemsControl.ItemTemplate>
+                    <DataTemplate DataType="{x:Type models:MenuTagPreset}">
+                        <ui:CardControl Margin="0,0,0,4" Padding="16,12">
+                            <ui:CardControl.Header>
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="Auto" />
+                                        <ColumnDefinition Width="Auto" />
+                                    </Grid.ColumnDefinitions>
+                                    <ui:SymbolIcon Grid.Column="0" VerticalAlignment="Center"
+                                                   FontSize="20" Symbol="Tag24" />
+                                    <TextBlock Grid.Column="1" Margin="14,0,0,0" VerticalAlignment="Center"
+                                               FontSize="14"
+                                               TextTrimming="CharacterEllipsis"
+                                               ToolTipService.ToolTip="{Binding Id}"
+                                               Text="{Binding Id, Mode=OneWay}" />
+                                </Grid>
+                            </ui:CardControl.Header>
+                            <StackPanel Orientation="Horizontal">
+                                <ui:TextBox Width="190" VerticalAlignment="Center"
+                                            PlaceholderText="Название в меню"
+                                            Text="{Binding Label, UpdateSourceTrigger=PropertyChanged}"
+                                            TextChanged="OnTagLabelChanged" />
+                                <ui:Button Margin="8,0,0,0" VerticalAlignment="Center"
+                                           Icon="{ui:SymbolIcon Symbol=Delete24}"
+                                           Appearance="Caution"
+                                           ToolTipService.ToolTip="Удалить метку"
+                                           Click="OnDeleteTagClick"
+                                           Tag="{Binding}" />
+                            </StackPanel>
+                        </ui:CardControl>
+                    </DataTemplate>
+                </ItemsControl.ItemTemplate>
+            </ItemsControl>
+        </ScrollViewer>
+
+        <TextBlock Grid.Row="3" Margin="0,12,0,0" FontSize="12" Opacity="0.55" TextWrapping="Wrap"
+                   Text="Идентификатор метки (Id) задаётся при создании; переименуйте подпись для контекстного меню." />
+    </Grid>
+</UserControl>

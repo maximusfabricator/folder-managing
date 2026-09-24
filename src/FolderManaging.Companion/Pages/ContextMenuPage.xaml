@@ -1,0 +1,88 @@
+<UserControl x:Class="FolderManaging.Companion.Pages.ContextMenuPage"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
+             Loaded="OnLoaded">
+    <Grid Margin="36,24,36,24">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
+        <StackPanel Grid.Row="0">
+            <TextBlock FontSize="28" FontWeight="SemiBold" Text="Контекстное меню" />
+            <TextBlock Margin="0,4,0,0" Opacity="0.65" TextWrapping="Wrap"
+                       Text="Собери меню правого клика под себя: включай и выключай пункты, меняй порядок стрелками, переименовывай, добавляй разделители. Изменения применяются сразу — просто кликни правой кнопкой по папке ещё раз." />
+        </StackPanel>
+
+        <Border Grid.Row="1" Margin="0,14,0,0" Padding="14,10" CornerRadius="8"
+                Background="{DynamicResource CardBackgroundFillColorSecondaryBrush}"
+                BorderBrush="{DynamicResource CardStrokeColorDefaultBrush}" BorderThickness="1">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="*" />
+                </Grid.ColumnDefinitions>
+                <ui:SymbolIcon Grid.Column="0" Margin="0,0,12,0" VerticalAlignment="Top" FontSize="18" Symbol="Info24" />
+                <TextBlock Grid.Column="1" FontSize="12" Opacity="0.8" TextWrapping="Wrap"
+                           Foreground="{DynamicResource TextFillColorSecondaryBrush}"
+                           Text="Windows 11 в подменю не рисует настоящие разделители — вместо них ставится серая линия ────────. У приложения один пункт меню: если пунктов два и больше, Windows сама складывает их в группу «Folder Managing»." />
+            </Grid>
+        </Border>
+
+        <ui:CardControl Grid.Row="2" Margin="0,12,0,0" Padding="16,12">
+            <ui:CardControl.Header>
+                <StackPanel>
+                    <TextBlock FontSize="14" FontWeight="SemiBold" Text="Название пункта в меню" />
+                    <TextBlock Margin="0,2,0,0" FontSize="12" Opacity="0.65" Text="То, что видно сразу после правого клика." />
+                </StackPanel>
+            </ui:CardControl.Header>
+            <ui:TextBox x:Name="RootTitleBox" Width="260" PlaceholderText="Folder Manager"
+                        TextChanged="OnRootTitleChanged" />
+        </ui:CardControl>
+
+        <Grid Grid.Row="3" Margin="0,12,0,0">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="16" />
+                <ColumnDefinition Width="300" />
+            </Grid.ColumnDefinitions>
+
+            <ScrollViewer Grid.Column="0" VerticalScrollBarVisibility="Auto">
+                <StackPanel x:Name="EntriesPanel" />
+            </ScrollViewer>
+
+            <Border Grid.Column="2" Padding="14" CornerRadius="8" VerticalAlignment="Top"
+                    Background="{DynamicResource CardBackgroundFillColorDefaultBrush}"
+                    BorderBrush="{DynamicResource CardStrokeColorDefaultBrush}" BorderThickness="1">
+                <StackPanel>
+                    <TextBlock FontSize="12" Opacity="0.65" Text="Предпросмотр" />
+                    <TextBlock x:Name="PreviewRootTitle" Margin="0,8,0,0" FontSize="14" FontWeight="SemiBold" Text="Folder Manager  ›" />
+                    <Border Margin="0,8,0,0" Padding="6" CornerRadius="6"
+                            Background="{DynamicResource SolidBackgroundFillColorBaseBrush}"
+                            BorderBrush="{DynamicResource CardStrokeColorDefaultBrush}" BorderThickness="1">
+                        <ScrollViewer MaxHeight="420" VerticalScrollBarVisibility="Auto">
+                            <StackPanel x:Name="PreviewPanel" />
+                        </ScrollViewer>
+                    </Border>
+                    <TextBlock x:Name="PreviewCount" Margin="0,8,0,0" FontSize="12" Opacity="0.6" TextWrapping="Wrap" />
+                </StackPanel>
+            </Border>
+        </Grid>
+
+        <StackPanel Grid.Row="4" Margin="0,12,0,0" Orientation="Horizontal">
+            <ui:Button Appearance="Secondary"
+                       Icon="{ui:SymbolIcon Symbol=Add24}"
+                       Content="Добавить разделитель"
+                       Click="OnAddSeparatorClick" />
+            <ui:Button Margin="8,0,0,0"
+                       Appearance="Caution"
+                       Icon="{ui:SymbolIcon Symbol=ArrowReset24}"
+                       Content="Сбросить меню к стандартному"
+                       Click="OnResetMenuClick" />
+        </StackPanel>
+    </Grid>
+</UserControl>
