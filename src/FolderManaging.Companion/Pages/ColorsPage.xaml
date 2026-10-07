@@ -18,8 +18,8 @@
         </Grid.RowDefinitions>
 
         <StackPanel Grid.Row="0">
-            <TextBlock FontSize="28" FontWeight="SemiBold" Text="Цвета папок" />
-            <TextBlock Margin="0,4,0,0" Opacity="0.65" TextWrapping="Wrap"
+            <TextBlock Style="{StaticResource FmText}" FontSize="28" FontWeight="SemiBold" Text="Цвета папок" />
+            <TextBlock Style="{StaticResource FmTextSecondary}" Margin="0,4,0,0" Opacity="0.65" TextWrapping="Wrap"
                        Text="Пресеты цветов для контекстного меню Проводника. Имя необязательно — без него меню покажет HEX." />
         </StackPanel>
 
@@ -49,10 +49,10 @@
                                         </Border.Background>
                                     </Border>
                                     <StackPanel Grid.Column="1" Margin="14,0,0,0" VerticalAlignment="Center">
-                                        <TextBlock FontSize="14">
+                                        <TextBlock Style="{StaticResource FmText}" FontSize="14">
                                             <Run Text="#" /><Run Text="{Binding HexRgb, Mode=OneWay}" />
                                         </TextBlock>
-                                        <TextBlock FontSize="12" Opacity="0.6"
+                                        <TextBlock Style="{StaticResource FmTextSecondary}" FontSize="12" Opacity="0.6"
                                                    TextTrimming="CharacterEllipsis"
                                                    ToolTipService.ToolTip="{Binding Id}"
                                                    Text="{Binding Id, Mode=OneWay}" />
@@ -112,22 +112,22 @@
                         <ColumnDefinition Width="*" />
                     </Grid.ColumnDefinitions>
 
-                    <TextBlock Grid.Row="0" Grid.Column="0" Grid.ColumnSpan="2"
+                    <TextBlock Style="{StaticResource FmText}" Grid.Row="0" Grid.Column="0" Grid.ColumnSpan="2"
                                x:Name="ColorEditorTitle" FontSize="16" FontWeight="SemiBold" Text="Редактор цвета" />
 
-                    <TextBlock Grid.Row="1" Grid.Column="0" Margin="0,14,0,0" VerticalAlignment="Center" Opacity="0.8" Text="R" />
+                    <TextBlock Style="{StaticResource FmTextSecondary}" Grid.Row="1" Grid.Column="0" Margin="0,14,0,0" VerticalAlignment="Center" Opacity="0.8" Text="R" />
                     <Slider Grid.Row="1" Grid.Column="1" Margin="8,14,0,0" VerticalAlignment="Center"
                             x:Name="SliderR" Minimum="0" Maximum="255" ValueChanged="OnEditorRgbChanged" />
 
-                    <TextBlock Grid.Row="2" Grid.Column="0" Margin="0,10,0,0" VerticalAlignment="Center" Opacity="0.8" Text="G" />
+                    <TextBlock Style="{StaticResource FmTextSecondary}" Grid.Row="2" Grid.Column="0" Margin="0,10,0,0" VerticalAlignment="Center" Opacity="0.8" Text="G" />
                     <Slider Grid.Row="2" Grid.Column="1" Margin="8,10,0,0" VerticalAlignment="Center"
                             x:Name="SliderG" Minimum="0" Maximum="255" ValueChanged="OnEditorRgbChanged" />
 
-                    <TextBlock Grid.Row="3" Grid.Column="0" Margin="0,10,0,0" VerticalAlignment="Center" Opacity="0.8" Text="B" />
+                    <TextBlock Style="{StaticResource FmTextSecondary}" Grid.Row="3" Grid.Column="0" Margin="0,10,0,0" VerticalAlignment="Center" Opacity="0.8" Text="B" />
                     <Slider Grid.Row="3" Grid.Column="1" Margin="8,10,0,0" VerticalAlignment="Center"
                             x:Name="SliderB" Minimum="0" Maximum="255" ValueChanged="OnEditorRgbChanged" />
 
-                    <TextBlock Grid.Row="4" Grid.Column="0" Margin="0,14,0,0" VerticalAlignment="Center" Opacity="0.8" Text="HEX" />
+                    <TextBlock Style="{StaticResource FmTextSecondary}" Grid.Row="4" Grid.Column="0" Margin="0,14,0,0" VerticalAlignment="Center" Opacity="0.8" Text="HEX" />
                     <ui:TextBox Grid.Row="4" Grid.Column="1" Margin="8,14,0,0" MaxWidth="180" HorizontalAlignment="Left"
                                 x:Name="HexEditor" MaxLength="6" PlaceholderText="RRGGBB" TextChanged="OnEditorHexChanged" />
 
@@ -140,7 +140,7 @@
             </Grid>
         </ui:Card>
 
-        <TextBlock Grid.Row="4" Margin="0,12,0,0" FontSize="12" Opacity="0.55" TextWrapping="Wrap"
+        <TextBlock Style="{StaticResource FmTextSecondary}" Grid.Row="4" Margin="0,12,0,0" FontSize="12" Opacity="0.55" TextWrapping="Wrap"
                    Text="Изменения сохраняются в %USERPROFILE%\.FolderManaging\state.json. Иконки в подменю обновляются сразу." />
     </Grid>
 </UserControl>

@@ -56,19 +56,48 @@ public sealed class ManagedFolderRow
 public partial class ManageFoldersPage : System.Windows.Controls.UserControl
 {
     ObservableCollection<ManagedFolderRow>? _rows;
+    bool _listening;
 
     public ManageFoldersPage()
     {
         InitializeComponent();
+        Loaded += OnLoaded;
+        Unloaded += OnUnloaded;
         IsVisibleChanged += (_, e) =>
         {
             if (e.NewValue is true)
-                Reload();
+                Reload(forceDisk: true);
         };
     }
 
-    void Reload()
+    void OnLoaded(object sender, RoutedEventArgs e)
     {
+        if (_listening)
+            return;
+        CompanionState.DocumentChanged += OnDocumentChanged;
+        _listening = true;
+        Reload(forceDisk: true);
+    }
+
+    void OnUnloaded(object sender, RoutedEventArgs e)
+    {
+        if (!_listening)
+            return;
+        CompanionState.DocumentChanged -= OnDocumentChanged;
+        _listening = false;
+    }
+
+    void OnDocumentChanged(object? sender, EventArgs e)
+    {
+        if (IsVisible)
+            Reload(forceDisk: false);
+    }
+
+    void Reload(bool forceDisk)
+    {
+        if (forceDisk)
+            CompanionState.ReloadFromDiskIfStale();
+
         var doc = CompanionState.Document;
         var list = doc.Folders
             .Where(f =>
@@ -120,7 +149,7 @@ public partial class ManageFoldersPage : System.Windows.Controls.UserControl
         FolderIconManager.RequestExplorerRefreshForFolder(row.Entry.Path);
         ClickTrace.Ok();
         scope.MarkFinished();
-        Reload();
+        Reload(forceDisk: false);
     }
 
     void OnClearTagsClick(object sender, RoutedEventArgs e)
@@ -136,7 +165,7 @@ public partial class ManageFoldersPage : System.Windows.Controls.UserControl
         FolderIconManager.RequestExplorerRefreshForFolder(row.Entry.Path);
         ClickTrace.Ok();
         scope.MarkFinished();
-        Reload();
+        Reload(forceDisk: false);
     }
 
     void OnRemoveColorClick(object sender, RoutedEventArgs e)
@@ -155,6 +184,6 @@ public partial class ManageFoldersPage : System.Windows.Controls.UserControl
         FolderIconManager.RequestExplorerRefreshForFolder(row.Entry.Path);
         ClickTrace.Ok();
         scope.MarkFinished();
-        Reload();
+        Reload(forceDisk: false);
     }
 }

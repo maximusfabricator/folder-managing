@@ -9,7 +9,9 @@
                  WindowStartupLocation="CenterScreen"
                  WindowBackdropType="Mica"
                  ExtendsContentIntoTitleBar="True"
-                 ResizeMode="NoResize">
+                 ResizeMode="NoResize"
+                 Foreground="{DynamicResource TextFillColorPrimaryBrush}"
+                 TextElement.Foreground="{DynamicResource TextFillColorPrimaryBrush}">
     <Grid Margin="0">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
@@ -24,7 +26,7 @@
         </ui:TitleBar>
 
         <StackPanel Grid.Row="1" Margin="24,8,24,8">
-            <TextBlock Opacity="0.7" TextWrapping="Wrap" Margin="0,0,0,12"
+            <TextBlock Style="{StaticResource FmTextSecondary}" Opacity="0.7" TextWrapping="Wrap" Margin="0,0,0,12"
                        Text="Поставь точку на нужный цвет, выбери папку и нажми «Покрасить» — без пресетов и настроек." />
 
             <Grid Height="240" Margin="0,0,0,8">
@@ -47,17 +49,17 @@
                 <Slider Grid.Column="1" Margin="12,0,12,0" VerticalAlignment="Center"
                         x:Name="BrightnessSlider" Minimum="5" Maximum="100" Value="100"
                         ValueChanged="OnBrightnessChanged" />
-                <TextBlock Grid.Column="2" VerticalAlignment="Center" FontFamily="Consolas" FontSize="14"
+                <TextBlock Style="{StaticResource FmText}" Grid.Column="2" VerticalAlignment="Center" FontFamily="Consolas" FontSize="14"
                            x:Name="HexText" Text="007ACC" />
             </Grid>
 
-            <TextBlock Margin="0,16,0,4" FontSize="12" Opacity="0.65" Text="Папка" />
+            <TextBlock Style="{StaticResource FmTextSecondary}" Margin="0,16,0,4" FontSize="12" Opacity="0.65" Text="Папка" />
             <Grid>
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="*" />
                     <ColumnDefinition Width="Auto" />
                 </Grid.ColumnDefinitions>
-                <TextBlock x:Name="FolderPathText" VerticalAlignment="Center" TextWrapping="Wrap"
+                <TextBlock Style="{StaticResource FmTextSecondary}" x:Name="FolderPathText" VerticalAlignment="Center" TextWrapping="Wrap"
                            Text="Папка не выбрана" Opacity="0.9" />
                 <ui:Button Grid.Column="1" Margin="8,0,0,0"
                            Appearance="Secondary"

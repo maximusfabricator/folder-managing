@@ -5,6 +5,7 @@
              xmlns:pages="clr-namespace:FolderManaging.Companion.Pages">
     <UserControl.Resources>
         <Style x:Key="PathCellStyle" TargetType="TextBlock">
+            <Setter Property="Foreground" Value="{DynamicResource TextFillColorPrimaryBrush}" />
             <Setter Property="TextTrimming" Value="CharacterEllipsis" />
             <Setter Property="ToolTip" Value="{Binding PathDisplay}" />
             <Setter Property="VerticalAlignment" Value="Center" />
@@ -17,8 +18,8 @@
         </Grid.RowDefinitions>
 
         <StackPanel Grid.Row="0" Margin="0,0,0,16">
-            <TextBlock FontSize="28" FontWeight="SemiBold" Text="Управление папками" />
-            <TextBlock Margin="0,4,0,0" Opacity="0.65" TextWrapping="Wrap"
+            <TextBlock Style="{StaticResource FmText}" FontSize="28" FontWeight="SemiBold" Text="Управление папками" />
+            <TextBlock Style="{StaticResource FmTextSecondary}" Margin="0,4,0,0" Opacity="0.65" TextWrapping="Wrap"
                        Text="Папки с цветом, метками или закреплением в «Быстром доступе». Действия сохраняются в state.json и обновляют Проводник." />
         </StackPanel>
 
@@ -39,9 +40,12 @@
                     <DataGrid.Columns>
                         <DataGridTextColumn Header="Путь" Binding="{Binding PathDisplay}" Width="*"
                                             ElementStyle="{StaticResource PathCellStyle}" />
-                        <DataGridTextColumn Header="Цвет" Binding="{Binding ColorDisplay}" Width="Auto" />
-                        <DataGridTextColumn Header="Метки" Binding="{Binding TagsDisplay}" Width="Auto" />
-                        <DataGridTextColumn Header="Закреплена" Binding="{Binding PinnedDisplay}" Width="Auto" />
+                        <DataGridTextColumn Header="Цвет" Binding="{Binding ColorDisplay}" Width="Auto"
+                                            ElementStyle="{StaticResource PathCellStyle}" />
+                        <DataGridTextColumn Header="Метки" Binding="{Binding TagsDisplay}" Width="Auto"
+                                            ElementStyle="{StaticResource PathCellStyle}" />
+                        <DataGridTextColumn Header="Закреплена" Binding="{Binding PinnedDisplay}" Width="Auto"
+                                            ElementStyle="{StaticResource PathCellStyle}" />
                         <DataGridTemplateColumn Header="Действия" Width="Auto">
                             <DataGridTemplateColumn.CellTemplate>
                                 <DataTemplate DataType="{x:Type pages:ManagedFolderRow}">
@@ -67,7 +71,7 @@
                         </DataGridTemplateColumn>
                     </DataGrid.Columns>
                 </DataGrid>
-                <TextBlock x:Name="EmptyHint" Margin="24" HorizontalAlignment="Center" VerticalAlignment="Center"
+                <TextBlock Style="{StaticResource FmTextSecondary}" x:Name="EmptyHint" Margin="24" HorizontalAlignment="Center" VerticalAlignment="Center"
                            Opacity="0.65" TextWrapping="Wrap" TextAlignment="Center"
                            Text="Пока нет настроенных папок. Примените цвет, метку или закрепление через контекстное меню Проводника."
                            Visibility="Collapsed" />
