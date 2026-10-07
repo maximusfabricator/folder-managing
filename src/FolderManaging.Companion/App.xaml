@@ -9,6 +9,17 @@
                 <ui:ControlsDictionary />
             </ResourceDictionary.MergedDictionaries>
 
+            <!--
+              Do not set an implicit TextBlock style: it overrides Primary/Caution button labels.
+              Pages bind label Foreground to these theme brushes (same as ContextMenuPage).
+            -->
+            <Style x:Key="FmText" TargetType="{x:Type TextBlock}">
+                <Setter Property="Foreground" Value="{DynamicResource TextFillColorPrimaryBrush}" />
+            </Style>
+            <Style x:Key="FmTextSecondary" TargetType="{x:Type TextBlock}">
+                <Setter Property="Foreground" Value="{DynamicResource TextFillColorSecondaryBrush}" />
+            </Style>
+
             <!-- Fallbacks; AppThemeService replaces these with shades of the Windows accent. -->
             <SolidColorBrush x:Key="FmCautionBackground" Color="#F7630C" />
             <SolidColorBrush x:Key="FmCautionBackgroundPointerOver" Color="#E6F7630C" />

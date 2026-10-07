@@ -13,8 +13,8 @@
         </Grid.RowDefinitions>
 
         <StackPanel Grid.Row="0">
-            <TextBlock FontSize="28" FontWeight="SemiBold" Text="Метки" />
-            <TextBlock Margin="0,4,0,0" Opacity="0.65" TextWrapping="Wrap"
+            <TextBlock Style="{StaticResource FmText}" FontSize="28" FontWeight="SemiBold" Text="Метки" />
+            <TextBlock Style="{StaticResource FmTextSecondary}" Margin="0,4,0,0" Opacity="0.65" TextWrapping="Wrap"
                        Text="Текстовые метки для пунктов «Tag — …» в контекстном меню Проводника." />
         </StackPanel>
 
@@ -51,7 +51,7 @@
                                     </Grid.ColumnDefinitions>
                                     <ui:SymbolIcon Grid.Column="0" VerticalAlignment="Center"
                                                    FontSize="20" Symbol="Tag24" />
-                                    <TextBlock Grid.Column="1" Margin="14,0,0,0" VerticalAlignment="Center"
+                                    <TextBlock Style="{StaticResource FmText}" Grid.Column="1" Margin="14,0,0,0" VerticalAlignment="Center"
                                                FontSize="14"
                                                TextTrimming="CharacterEllipsis"
                                                ToolTipService.ToolTip="{Binding Id}"
@@ -76,7 +76,7 @@
             </ItemsControl>
         </ScrollViewer>
 
-        <TextBlock Grid.Row="3" Margin="0,12,0,0" FontSize="12" Opacity="0.55" TextWrapping="Wrap"
+        <TextBlock Style="{StaticResource FmTextSecondary}" Grid.Row="3" Margin="0,12,0,0" FontSize="12" Opacity="0.55" TextWrapping="Wrap"
                    Text="Идентификатор метки (Id) задаётся при создании; переименуйте подпись для контекстного меню." />
     </Grid>
 </UserControl>

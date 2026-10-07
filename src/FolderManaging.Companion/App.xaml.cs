@@ -38,6 +38,7 @@ public partial class App : System.Windows.Application
     {
         _tray?.Dispose();
         Tray = null;
+        CompanionState.Shutdown();
         AppThemeService.Shutdown();
         base.OnExit(e);
     }
