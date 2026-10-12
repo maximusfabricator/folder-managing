@@ -15,6 +15,22 @@ internal static class ExtremeLogger
     const string CrashFileName = "FolderManagerCrash.txt";
     const string PointerFileName = "FOLDERMANAGING_EXTREME_LOG.txt";
 
+#if !FM_DEV
+    internal static void Log(string message, [CallerMemberName] string caller = "")
+    {
+    }
+
+    internal static void LogException(Exception ex, string context, [CallerMemberName] string caller = "") =>
+        FolderManaging.Core.Diagnostics.TraceLog.Append("shell-menu.log", $"[COM] [EXCEPTION] [{caller}] {context}: {ex}");
+
+    internal static void LogEnvironmentSnapshot(string context)
+    {
+    }
+
+    internal static void BootTouch()
+    {
+    }
+#else
     static readonly object Gate = new();
     static int _bannerWritten;
     static int _pointerWritten;
@@ -281,6 +297,7 @@ internal static class ExtremeLogger
             return "(assembly error: " + ex.Message + ")";
         }
     }
+#endif
 
     internal static string ShellAssemblyDirectory
     {

@@ -1,6 +1,7 @@
 using System.Runtime.InteropServices;
 using FolderManaging.Core;
 using FolderManaging.Core.Diagnostics;
+using FolderManaging.Core.Localization;
 using FolderManaging.Core.Storage;
 
 namespace FolderManaging.Shell;
@@ -43,9 +44,7 @@ internal static class UserFeedback
                     ClickTrace.Step("feedback: access denied dialog shown (auto-elevate off)");
                     var answer = MessageBoxW(
                         0,
-                        $"Windows защищает эту папку, поэтому изменить её без прав администратора нельзя:\n{path}\n\n" +
-                        "Повторить с правами администратора?\n\n" +
-                        "(Можно включить авто-права в Настройках Folder Managing.)",
+                        UiText.Format("UacProtected", path),
                         Caption,
                         MB_YESNO | MB_ICONWARNING | MB_SETFOREGROUND | MB_TOPMOST);
                     ClickTrace.Step($"feedback: answer={(answer == IDYES ? "yes" : "no")}");
@@ -61,11 +60,11 @@ internal static class UserFeedback
                 if (!ok)
                 {
                     var tip = string.Equals(elevErr, "User cancelled UAC.", StringComparison.Ordinal)
-                        ? "Нужно один раз подтвердить права администратора в окне Windows. После этого вопросы больше не появятся, пока включена настройка."
+                        ? UiText.Get("UacOnce")
                         : elevErr;
                     MessageBoxW(
                         0,
-                        $"Не получилось с правами администратора.\n{tip}\n\nПодробности в логе (Настройки → Открыть логи).",
+                        UiText.Format("UacFail", tip),
                         Caption,
                         MB_OK | MB_ICONERROR | MB_SETFOREGROUND | MB_TOPMOST);
                 }
@@ -76,7 +75,7 @@ internal static class UserFeedback
             ClickTrace.Step("feedback: error dialog shown");
             MessageBoxW(
                 0,
-                $"Не удалось изменить папку:\n{path}\n\n{ex.Message}\n\nПодробности в логе (Настройки → Открыть логи).",
+                UiText.Format("ChangeFolderFail", path, ex.Message),
                 Caption,
                 MB_OK | MB_ICONERROR | MB_SETFOREGROUND | MB_TOPMOST);
         }
@@ -86,6 +85,33 @@ internal static class UserFeedback
         }
 
         return false;
+    }
+
+    /// <summary>
+    /// Once per machine/user state: explain that Explorer sorts colors via Tags/Title (not a «Color» menu item).
+    /// </summary>
+    internal static void MaybeShowColorSortTip()
+    {
+        try
+        {
+            var doc = JsonFolderStateStore.LoadSynchronously();
+            if (doc.ColorSortTipShown)
+                return;
+
+            MessageBoxW(
+                0,
+                UiText.Get("ColorSortTip"),
+                Caption,
+                MB_OK | MB_ICONWARNING | MB_SETFOREGROUND | MB_TOPMOST);
+
+            doc.ColorSortTipShown = true;
+            JsonFolderStateStore.SaveSynchronously(doc);
+            ClickTrace.Step("color-sort tip shown and saved");
+        }
+        catch (Exception ex)
+        {
+            ClickTrace.Step($"color-sort tip failed: {ex.Message}");
+        }
     }
 
     static bool IsAccessDenied(Exception ex)

@@ -1,8 +1,9 @@
-﻿<ui:FluentWindow x:Class="FolderManaging.Companion.MainWindow"
+<ui:FluentWindow x:Class="FolderManaging.Companion.MainWindow"
                  xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
                  xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
                  xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
                  xmlns:pages="clr-namespace:FolderManaging.Companion.Pages"
+                 xmlns:loc="clr-namespace:FolderManaging.Companion.Localization"
                  Title="Folder Managing"
                  Height="720" Width="1120"
                  MinWidth="900" MinHeight="540"
@@ -35,30 +36,31 @@
                            OpenPaneLength="252"
                            PaneTitle="Folder Managing">
             <ui:NavigationView.MenuItems>
-                <ui:NavigationViewItem Content="Цвета папок"
+                <ui:NavigationViewItem Content="{loc:Loc NavColors}"
                                        Icon="{ui:SymbolIcon Symbol=Color24}"
                                        TargetPageType="{x:Type pages:ColorsPage}" />
-                <ui:NavigationViewItem Content="Метки"
+                <ui:NavigationViewItem Content="{loc:Loc NavTags}"
                                        Icon="{ui:SymbolIcon Symbol=Tag24}"
                                        TargetPageType="{x:Type pages:TagsPage}" />
-                <ui:NavigationViewItem Content="Управление папками"
+                <ui:NavigationViewItem Content="{loc:Loc NavFolders}"
                                        Icon="{ui:SymbolIcon Symbol=Folder24}"
                                        TargetPageType="{x:Type pages:ManageFoldersPage}" />
-                <ui:NavigationViewItem Content="Контекстное меню"
+                <ui:NavigationViewItem Content="{loc:Loc NavMenu}"
                                        Icon="{ui:SymbolIcon Symbol=TextBulletListLtr24}"
                                        TargetPageType="{x:Type pages:ContextMenuPage}" />
-                <ui:NavigationViewItem Content="Настройки"
+                <ui:NavigationViewItem Content="{loc:Loc NavSettings}"
                                        Icon="{ui:SymbolIcon Symbol=Settings24}"
                                        TargetPageType="{x:Type pages:SettingsPage}" />
             </ui:NavigationView.MenuItems>
             <ui:NavigationView.FooterMenuItems>
-                <ui:NavigationViewItem Content="Быстрая покраска…"
+                <ui:NavigationViewItem Content="{loc:Loc NavQuickColor}"
                                        Icon="{ui:SymbolIcon Symbol=Color24}"
                                        Click="OnQuickColorClick" />
-                <ui:NavigationViewItem Content="Открыть логи…"
+                <ui:NavigationViewItem x:Name="LogsNavItem"
+                                       Content="{loc:Loc NavLogs}"
                                        Icon="{ui:SymbolIcon Symbol=DocumentText24}"
                                        Click="OnOpenLogsClick" />
-                <ui:NavigationViewItem Content="Сброс значка папки…"
+                <ui:NavigationViewItem Content="{loc:Loc NavResetIcon}"
                                        Icon="{ui:SymbolIcon Symbol=ArrowReset24}"
                                        Click="OnResetFolderIconClick" />
             </ui:NavigationView.FooterMenuItems>

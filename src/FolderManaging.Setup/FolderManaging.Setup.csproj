@@ -1,0 +1,41 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    One project, two outputs (see scripts\release\Build-UserRelease.ps1):
+      - FmPayloadZip set   -> self-contained Setup.exe with the whole product embedded (runs on a clean PC).
+      - FmPayloadZip empty -> small framework-dependent maintenance copy installed next to the app (uninstall).
+  -->
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <UseWPF>true</UseWPF>
+    <SupportedOSPlatforms>windows</SupportedOSPlatforms>
+    <ApplicationIcon>..\..\assets\FolderManaging.ico</ApplicationIcon>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
+    <AssemblyName>FolderManaging.Setup</AssemblyName>
+    <RootNamespace>FolderManaging.Setup</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Using Include="System.IO" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\FolderManaging.Core\FolderManaging.Core.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="WPF-UI" Version="4.2.1" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Resource Include="..\..\logo.png" Link="Assets\logo.png" />
+  </ItemGroup>
+
+  <ItemGroup Condition="'$(FmPayloadZip)' != ''">
+    <EmbeddedResource Include="$(FmPayloadZip)" LogicalName="payload.zip" />
+  </ItemGroup>
+
+</Project>

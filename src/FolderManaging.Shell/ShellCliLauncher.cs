@@ -2,7 +2,6 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
 using System.Reflection;
-using System.Text;
 using FolderManaging.Core;
 using FolderManaging.Core.Diagnostics;
 
@@ -118,43 +117,9 @@ internal static class ShellCliLauncher
         }
     }
 
-    internal static void TryLaunchShellPreview(string kind, string folderPath, string? token)
-    {
-        try
-        {
-            if (!TryResolveCliExecutablePath(out var cli))
-            {
-                ShellActionLog.Write(
-                    $"shell-preview skipped (CLI missing). Tried: {string.Join("; ", GetCandidateInstallRoots().Select(static d => Path.Combine(d, "FolderManaging.Cli.exe")))}");
-                return;
-            }
-
-            var args = new StringBuilder();
-            args.Append("shell-preview ");
-            args.Append("--kind ").Append(Quote(kind)).Append(' ');
-            args.Append("--path ").Append(Quote(folderPath));
-            if (!string.IsNullOrWhiteSpace(token))
-            {
-                args.Append(" --token ").Append(Quote(token!));
-            }
-
-            Process.Start(new ProcessStartInfo(cli, args.ToString())
-            {
-                UseShellExecute = false,
-                CreateNoWindow = true,
-            });
-        }
-        catch (Exception ex)
-        {
-            ShellActionLog.Write($"shell-preview launch failed: {ex.Message}");
-        }
-    }
-
     /// <summary>Re-runs a color/reset via the CLI with a UAC prompt (for protected folders such as <c>C:\Program Files</c>).</summary>
     internal static bool TryInvokeVerbElevated(string action, string folderPath, string? value) =>
         ElevatedCliInvoker.TryInvoke(action, folderPath, value, out _);
-
-    private static string Quote(string value) => $"\"{value.Replace("\"", "\\\"", StringComparison.Ordinal)}\"";
 
     /// <summary>
     /// COM/comhost often leaves <see cref="AppContext.BaseDirectory"/> empty; the shell DLL and CLI are siblings in the MSIX root.

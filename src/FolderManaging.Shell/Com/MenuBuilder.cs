@@ -2,6 +2,7 @@
 using FolderManaging.Core;
 using FolderManaging.Core.Diagnostics;
 using FolderManaging.Core.Models;
+using FolderManaging.Core.Localization;
 using FolderManaging.Core.Storage;
 using Vanara.PInvoke;
 
@@ -72,8 +73,8 @@ internal static class MenuBuilder
             switch (entry.Kind)
             {
                 case ContextMenuItemKinds.Pin:
-                    list.Add(new MenuActionExplorerCommand("pin", "📌 Pin folder", "pin", token: null));
-                    list.Add(new MenuActionExplorerCommand("unpin", "📌 Unpin folder", "unpin", token: null));
+                    list.Add(new MenuActionExplorerCommand("pin", UiText.Get("Pin"), "pin", token: null));
+                    list.Add(new MenuActionExplorerCommand("unpin", UiText.Get("Unpin"), "unpin", token: null));
                     break;
 
                 case ContextMenuItemKinds.QuickColor:
@@ -134,9 +135,27 @@ internal static class MenuBuilder
         foreach (var (name, hex) in SystemPalette)
         {
             var icon = FolderIconManager.TryGetRgbIconMenuReference(ColorTranslator.FromHtml("#" + hex));
-            list.Add(new MenuActionExplorerCommand($"palette-{hex}", $"🎨 {name}", "rgb", hex, icon));
+            list.Add(new MenuActionExplorerCommand($"palette-{hex}", $"🎨 {UiText.Get(PaletteKey(name))}", "rgb", hex, icon));
         }
     }
+
+    static string PaletteKey(string englishName) => englishName switch
+    {
+        "Red" => "PalRed",
+        "Orange" => "PalOrange",
+        "Yellow" => "PalYellow",
+        "Lime" => "PalLime",
+        "Green" => "PalGreen",
+        "Teal" => "PalTeal",
+        "Cyan" => "PalCyan",
+        "Blue" => "PalBlue",
+        "Indigo" => "PalIndigo",
+        "Purple" => "PalPurple",
+        "Pink" => "PalPink",
+        "Brown" => "PalBrown",
+        "Gray" => "PalGray",
+        _ => "ColorPlain",
+    };
 
     static void AppendTagItems(List<Shell32.IExplorerCommand> list, AppStateDocument doc)
     {
@@ -144,7 +163,7 @@ internal static class MenuBuilder
         {
             if (string.IsNullOrWhiteSpace(t.Id))
                 continue;
-            list.Add(new MenuActionExplorerCommand($"tag-{t.Id}", $"🏷️ Tag — {t.Label}", "tag", t.Id));
+            list.Add(new MenuActionExplorerCommand($"tag-{t.Id}", UiText.Format("TagLine", t.Label), "tag", t.Id));
         }
     }
 
@@ -152,10 +171,10 @@ internal static class MenuBuilder
     {
         var hexUpper = NormalizeHexForDisplay(row.HexRgb);
         if (!string.IsNullOrWhiteSpace(row.Label))
-            return $"🎨 Color — {row.Label}";
+            return UiText.Format("ColorLine", row.Label);
         if (!string.IsNullOrWhiteSpace(hexUpper))
-            return $"🎨 Color #{hexUpper}";
-        return "🎨 Color";
+            return UiText.Format("ColorHex", hexUpper);
+        return UiText.Get("ColorPlain");
     }
 
     static string NormalizeHexForDisplay(string? raw)

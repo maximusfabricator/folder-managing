@@ -1,0 +1,97 @@
+<ui:FluentWindow x:Class="FolderManaging.Setup.SetupWindow"
+                 xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                 xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                 xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
+                 xmlns:loc="clr-namespace:FolderManaging.Setup.Localization"
+                 Title="{loc:Loc SetupInstallTitle}"
+                 Width="580" SizeToContent="Height"
+                 ResizeMode="NoResize"
+                 WindowStartupLocation="CenterScreen"
+                 WindowBackdropType="Mica"
+                 ExtendsContentIntoTitleBar="True"
+                 Foreground="{DynamicResource TextFillColorPrimaryBrush}"
+                 TextElement.Foreground="{DynamicResource TextFillColorPrimaryBrush}"
+                 Closing="OnClosing">
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
+        <ui:TitleBar x:Name="WindowTitleBar" Grid.Row="0" Title="Folder Managing"
+                     ShowMaximize="False" ShowMinimize="True" ShowClose="True">
+            <ui:TitleBar.Icon>
+                <ui:ImageIcon Source="pack://application:,,,/Assets/logo.png" />
+            </ui:TitleBar.Icon>
+        </ui:TitleBar>
+
+        <StackPanel Grid.Row="1" Orientation="Horizontal" Margin="32,12,32,0">
+            <Image Source="pack://application:,,,/Assets/logo.png" Width="56" Height="56" />
+            <StackPanel Margin="16,0,0,0" VerticalAlignment="Center">
+                <TextBlock FontSize="24" FontWeight="SemiBold" Text="Folder Managing" />
+                <TextBlock x:Name="SubtitleText" Margin="0,2,0,0" FontSize="13"
+                           Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
+            </StackPanel>
+        </StackPanel>
+
+        <Grid Grid.Row="2" Margin="32,20,32,0" MinHeight="220">
+            <!-- Install -->
+            <StackPanel x:Name="InstallPage">
+                <TextBlock TextWrapping="Wrap" FontSize="14" LineHeight="21"
+                           Text="{loc:Loc SetupBlurb}" />
+                <TextBlock x:Name="InstalledVersionText" Margin="0,8,0,0" TextWrapping="Wrap" FontSize="13"
+                           Foreground="{DynamicResource TextFillColorSecondaryBrush}" Visibility="Collapsed" />
+                <CheckBox x:Name="AutostartCheck" Margin="0,18,0,0" IsChecked="True"
+                          Content="{loc:Loc SetupAutostart}" />
+                <CheckBox x:Name="DesktopShortcutCheck" Margin="0,8,0,0" IsChecked="False"
+                          Content="{loc:Loc SetupDesktop}" />
+                <CheckBox x:Name="RestartExplorerCheck" Margin="0,8,0,0" IsChecked="True"
+                          Content="{loc:Loc SetupRestart}" />
+                <CheckBox x:Name="LaunchCheck" Margin="0,8,0,0" IsChecked="True"
+                          Content="{loc:Loc SetupLaunch}" />
+                <TextBlock Margin="0,16,0,0" TextWrapping="Wrap" FontSize="12"
+                           Foreground="{DynamicResource TextFillColorSecondaryBrush}"
+                           Text="{loc:Loc SetupAdminNote}" />
+            </StackPanel>
+
+            <!-- Uninstall -->
+            <StackPanel x:Name="UninstallPage" Visibility="Collapsed">
+                <TextBlock TextWrapping="Wrap" FontSize="14" LineHeight="21"
+                           Text="{loc:Loc UninstallBlurb}" />
+                <CheckBox x:Name="ResetFoldersCheck" Margin="0,18,0,0" IsChecked="True"
+                          Content="{loc:Loc UninstallReset}" />
+                <CheckBox x:Name="DeleteSettingsCheck" Margin="0,8,0,0" IsChecked="False"
+                          Content="{loc:Loc UninstallDeleteData}" />
+            </StackPanel>
+
+            <!-- Progress -->
+            <StackPanel x:Name="ProgressPage" Visibility="Collapsed" VerticalAlignment="Center">
+                <ui:ProgressRing IsIndeterminate="True" Width="48" Height="48" HorizontalAlignment="Left" />
+                <TextBlock x:Name="ProgressText" Margin="0,18,0,0" TextWrapping="Wrap" FontSize="14" />
+            </StackPanel>
+
+            <!-- Done / error -->
+            <StackPanel x:Name="ResultPage" Visibility="Collapsed">
+                <StackPanel Orientation="Horizontal">
+                    <ui:SymbolIcon x:Name="ResultIcon" Symbol="CheckmarkCircle24" FontSize="32" Filled="True" />
+                    <TextBlock x:Name="ResultTitle" Margin="12,0,0,0" VerticalAlignment="Center"
+                               FontSize="20" FontWeight="SemiBold" />
+                </StackPanel>
+                <TextBlock x:Name="ResultText" Margin="0,14,0,0" TextWrapping="Wrap" FontSize="14" LineHeight="21" />
+                <TextBlock x:Name="ResultDetails" Margin="0,10,0,0" TextWrapping="Wrap" FontSize="12"
+                           Foreground="{DynamicResource TextFillColorSecondaryBrush}" Visibility="Collapsed" />
+            </StackPanel>
+        </Grid>
+
+        <Border Grid.Row="3" Margin="0,24,0,0" Padding="32,16"
+                Background="{DynamicResource CardBackgroundFillColorDefaultBrush}">
+            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                <ui:Button x:Name="SecondaryButton" MinWidth="110" Content="{loc:Loc Cancel}" Click="OnSecondaryClick" />
+                <ui:Button x:Name="PrimaryButton" MinWidth="130" Margin="10,0,0,0" Appearance="Primary"
+                           Content="{loc:Loc Install}" Click="OnPrimaryClick" />
+            </StackPanel>
+        </Border>
+    </Grid>
+</ui:FluentWindow>

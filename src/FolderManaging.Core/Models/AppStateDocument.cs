@@ -22,6 +22,11 @@ public sealed class AppStateDocument
     /// <summary>User layout of the "Folder Manager" context menu; <c>null</c> means the built-in default.</summary>
     public ContextMenuLayout? ContextMenu { get; set; }
 
+    /// <summary>
+    /// When true, we already showed the one-time tip that Explorer sorts colored folders via Tags/Title.
+    /// </summary>
+    public bool ColorSortTipShown { get; set; }
+
     public ContextMenuLayout GetContextMenuLayout() => ContextMenuLayout.Normalize(ContextMenu);
 
     /// <summary>Restores app settings to defaults. Folder data, color presets and tags are kept.</summary>

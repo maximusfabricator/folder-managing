@@ -4,6 +4,7 @@ using System.Windows;
 using System.Windows.Controls;
 using FolderManaging.Core;
 using FolderManaging.Core.Diagnostics;
+using FolderManaging.Core.Localization;
 using FolderManaging.Core.Models;
 using FolderManaging.Core.Storage;
 
@@ -73,7 +74,7 @@ public partial class ColorsPage : System.Windows.Controls.UserControl
             scope.MarkFinished();
             System.Windows.MessageBox.Show(
                 Window.GetWindow(this),
-                "Встроенный цвет нельзя удалить — измените его или скройте позже через настройки меню.",
+                UiText.Get("BuiltInColor"),
                 "Folder Managing",
                 System.Windows.MessageBoxButton.OK,
                 System.Windows.MessageBoxImage.Information);
@@ -100,9 +101,9 @@ public partial class ColorsPage : System.Windows.Controls.UserControl
     {
         _editing = preset;
         _editOriginalHex = preset.HexRgb;
-        ColorEditorTitle.Text = string.IsNullOrWhiteSpace(preset.Label)
-            ? $"Цвет — {preset.Id}"
-            : $"Цвет — {preset.Label}";
+        ColorEditorTitle.Text = UiText.Format(
+            "ColorNamed",
+            string.IsNullOrWhiteSpace(preset.Label) ? preset.Id : preset.Label);
 
         _suspendEditorSync = true;
         if (MenuColorHex.TryParse(preset.HexRgb, out var c))

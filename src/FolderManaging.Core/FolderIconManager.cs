@@ -3,6 +3,7 @@ using System.Runtime.InteropServices;
 using System.Text;
 using FolderManaging.Core.Diagnostics;
 using FolderManaging.Core.Interop;
+using FolderManaging.Core.ShellProperties;
 using FolderManaging.Core.Storage;
 
 namespace FolderManaging.Core;
@@ -25,7 +26,8 @@ public static class FolderIconManager
     const string OriginalIniPrefix = "; FolderManaging-original-b64=";
 
     /// <summary>Keys we own in <c>[.ShellClassInfo]</c>; every other line of a pre-existing ini is carried over.</summary>
-    static readonly string[] OwnedShellClassInfoKeys = ["IconResource", "IconFile", "IconIndex", "ConfirmFileOp", "NoSharing"];
+    static readonly string[] OwnedShellClassInfoKeys =
+        ["IconResource", "IconFile", "IconIndex", "ConfirmFileOp", "NoSharing", "InfoTip"];
 
     /// <summary>Creates built-in preset .ico files under the user icon cache when missing, tiny, or style marker mismatch.</summary>
     public static void EnsurePresetIcons() =>
@@ -219,9 +221,11 @@ public static class FolderIconManager
             TraceLog.Append("shell-menu.log", $"[CORE] [WARN STEP 7] could not snapshot attrs: {ex.Message}");
         }
 
-        var iniBody = ComposeManagedIniBody(iniPath, iconResourceLine);
+        var hue = FolderColorHueProperty.FromColor(resolvedTint);
+        var iniBody = ComposeManagedIniBody(iniPath, iconResourceLine, hue, colorId);
+        ClickTrace.Step($"ColorHue={hue} sortLabel='{FolderColorHueProperty.ToSortLabel(hue, colorId)}'");
 
-        TraceLog.Append("shell-menu.log", $"[CORE] [STEP 8 WRITE] {iniBody.Length} chars UTF-16 LE -> '{iniPath}'");
+        TraceLog.Append("shell-menu.log", $"[CORE] [STEP 8 WRITE] {iniBody.Length} chars UTF-16 LE -> '{iniPath}' hue={hue}");
         WriteManagedDesktopIni(iniPath, iniBody);
         TraceLog.Append("shell-menu.log", "[CORE] [STEP 9] desktop.ini written + Hidden|System applied");
         ClickTrace.Step("desktop.ini written (UTF-16 LE, Hidden|System)");
@@ -246,6 +250,7 @@ public static class FolderIconManager
         ClickTrace.Step("SHChangeNotify sent (UPDATEITEM+UPDATEDIR+ATTRIBUTES)");
 
         PerFolderIconCache.DeleteOldVersions(fullFolder, iconFullPath);
+        CleanupLegacySortTailsInParent(fullFolder);
 
         try
         {
@@ -297,6 +302,7 @@ public static class FolderIconManager
         RestoreOrDeleteManagedIni(fullFolder, iniPath);
         PerFolderIconCache.DeleteOldVersions(fullFolder, keepPath: null);
         NotifyShellAfterDesktopIniChange(fullFolder);
+        CleanupLegacySortTailsInParent(fullFolder);
     }
 
     /// <summary>Restores the pre-existing <c>desktop.ini</c> saved by <see cref="ComposeManagedIniBody"/>, or deletes ours.</summary>
@@ -320,15 +326,21 @@ public static class FolderIconManager
     /// <summary>
     /// Builds our <c>desktop.ini</c>. A pre-existing foreign ini (e.g. <c>LocalizedResourceName</c> on system folders)
     /// keeps all its non-icon lines and is embedded as Base64 so reset can put it back byte-for-byte.
+    /// Also embeds <see cref="FolderColorHueProperty"/> (Title/Tags labels) for rainbow sort in Explorer.
     /// </summary>
-    static string ComposeManagedIniBody(string iniPath, string iconResourceLine)
+    static string ComposeManagedIniBody(string iniPath, string iconResourceLine, int colorHueDegrees, string? colorIdOrHex)
     {
         string? original = null;
         if (File.Exists(iniPath))
         {
-            original = IsManagedDesktopIni(iniPath) ? TryReadOriginalIni(iniPath) : File.ReadAllText(iniPath);
-            if (original is not null)
-                ClickTrace.Step($"pre-existing desktop.ini preserved ({original.Length} chars)");
+            var existing = File.ReadAllText(iniPath);
+            // Sort-tail is our disposable placeholder, not a user ini to restore later.
+            if (!IsSortTailOnly(existing))
+            {
+                original = IsManagedDesktopIni(iniPath) ? TryReadOriginalIni(iniPath) : existing;
+                if (original is not null)
+                    ClickTrace.Step($"pre-existing desktop.ini preserved ({original.Length} chars)");
+            }
         }
 
         var nl = Environment.NewLine;
@@ -337,6 +349,7 @@ public static class FolderIconManager
         if (original is not null)
         {
             var section = "";
+            var skipSection = false;
             foreach (var raw in original.Split('\n'))
             {
                 var line = raw.TrimEnd('\r');
@@ -344,12 +357,16 @@ public static class FolderIconManager
                 if (trimmed.StartsWith('[') && trimmed.EndsWith(']'))
                 {
                     section = trimmed;
-                    if (!section.Equals("[.ShellClassInfo]", StringComparison.OrdinalIgnoreCase))
+                    skipSection = FolderColorHueProperty.IsOwnedSectionHeader(section);
+                    if (!skipSection && !section.Equals("[.ShellClassInfo]", StringComparison.OrdinalIgnoreCase))
                         otherSections.Append(line).Append(nl);
                     continue;
                 }
 
                 if (trimmed.Length == 0)
+                    continue;
+
+                if (skipSection)
                     continue;
 
                 if (section.Equals("[.ShellClassInfo]", StringComparison.OrdinalIgnoreCase))
@@ -371,10 +388,13 @@ public static class FolderIconManager
             .Append("ConfirmFileOp=0").Append(nl)
             .Append("NoSharing=1").Append(nl)
             .Append("IconResource=").Append(iconResourceLine).Append(nl)
+            // Hover tip explains how to sort by color; Tags/Title hold the sortable label.
+            .Append(FolderColorHueProperty.InfoTipLine()).Append(nl)
             .Append(shellClassInfo)
             .Append("; ").Append(ManagedDesktopIniMarker).Append(nl);
         if (original is not null)
             body.Append(OriginalIniPrefix).Append(Convert.ToBase64String(Encoding.UTF8.GetBytes(original))).Append(nl);
+        FolderColorHueProperty.AppendToDesktopIni(body, colorHueDegrees, colorIdOrHex);
         body.Append(otherSections);
         return body.ToString();
     }
@@ -563,13 +583,17 @@ public static class FolderIconManager
         var iniPath = Path.Combine(fullFolder, DesktopIniFileName);
 
         var iconResourceLine = BuildIconResourceLine(iconFullPath);
-        var iniBody = ComposeManagedIniBody(iniPath, iconResourceLine);
+        var hue = FolderColorHueProperty.FromColor(tint);
+        var rgbLabel = $"{tint.R:X2}{tint.G:X2}{tint.B:X2}";
+        var iniBody = ComposeManagedIniBody(iniPath, iconResourceLine, hue, rgbLabel);
+        ClickTrace.Step($"ApplyRgb ColorHue={hue} sortLabel='{FolderColorHueProperty.ToSortLabel(hue, rgbLabel)}'");
 
         WriteManagedDesktopIni(iniPath, iniBody);
         SetFolderReadOnly(fullFolder);
         CommitIconViaShellApi(fullFolder, iniPath, iniBody, iconFullPath);
         NotifyShellAfterDesktopIniChange(fullFolder);
         PerFolderIconCache.DeleteOldVersions(fullFolder, iconFullPath);
+        CleanupLegacySortTailsInParent(fullFolder);
     }
 
     /// <summary>
@@ -602,10 +626,12 @@ public static class FolderIconManager
             var current = File.ReadAllText(iniPath);
             var lostOriginal = iniBody.Contains(OriginalIniPrefix, StringComparison.Ordinal) &&
                                !current.Contains(OriginalIniPrefix, StringComparison.Ordinal);
-            if (lostOriginal || !IsManagedDesktopIni(iniPath) ||
+            var lostHue = iniBody.Contains(FolderColorHueProperty.IniSectionHeader, StringComparison.OrdinalIgnoreCase) &&
+                          !current.Contains(FolderColorHueProperty.IniSectionHeader, StringComparison.OrdinalIgnoreCase);
+            if (lostOriginal || lostHue || !IsManagedDesktopIni(iniPath) ||
                 !current.Contains(Path.GetFileName(iconFullPath), StringComparison.OrdinalIgnoreCase))
             {
-                ClickTrace.Step("desktop.ini changed by shell API (marker/icon missing) -> rewriting our body");
+                ClickTrace.Step("desktop.ini changed by shell API (marker/icon/hue missing) -> rewriting our body");
                 ClearFolderReadOnly(fullFolder);
                 WriteManagedDesktopIni(iniPath, iniBody);
                 SetFolderReadOnly(fullFolder);
@@ -730,6 +756,85 @@ public static class FolderIconManager
         var attrs = File.GetAttributes(folder);
         // Explorer honors folder customization with ReadOnly on the folder; do not set System (breaks attrib / UX).
         File.SetAttributes(folder, (attrs & ~FileAttributes.System) | FileAttributes.ReadOnly);
+    }
+
+    /// <summary>
+    /// Removes leftover sibling «999» sort-tail <c>desktop.ini</c> files from older builds.
+    /// Does not write new tails — uncolored folders stay untouched; sort relies on sparse ColorHue + Explorer.
+    /// </summary>
+    static void CleanupLegacySortTailsInParent(string folderJustUpdated)
+    {
+        string? parent;
+        try
+        {
+            parent = Path.GetDirectoryName(folderJustUpdated);
+        }
+        catch
+        {
+            return;
+        }
+
+        if (string.IsNullOrEmpty(parent) || !Directory.Exists(parent))
+            return;
+
+        IEnumerable<string> siblings;
+        try
+        {
+            siblings = Directory.EnumerateDirectories(parent);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            ClickTrace.Step($"sort-tail cleanup: cannot list '{parent}': {ex.Message}");
+            return;
+        }
+
+        var changed = 0;
+        foreach (var dir in siblings)
+        {
+            if (TryRemoveSortTail(dir))
+                changed++;
+        }
+
+        if (changed > 0)
+        {
+            ClickTrace.Step($"sort-tail cleanup parent='{parent}' removed={changed}");
+            SendShellChangeNotify(Win32Shell.SHCNE_UPDATEDIR, parent);
+        }
+    }
+
+    static bool IsSortTailOnly(string iniText) =>
+        iniText.Contains(FolderColorHueProperty.SortTailMarker, StringComparison.Ordinal)
+        && !iniText.Contains(ManagedDesktopIniMarker, StringComparison.Ordinal)
+        && !iniText.Contains("IconResource=", StringComparison.OrdinalIgnoreCase);
+
+    /// <returns><c>true</c> when a legacy tail ini was removed.</returns>
+    static bool TryRemoveSortTail(string folder)
+    {
+        var iniPath = Path.Combine(folder, DesktopIniFileName);
+        if (!File.Exists(iniPath))
+            return false;
+
+        try
+        {
+            var attrs = File.GetAttributes(folder);
+            if (attrs.HasFlag(FileAttributes.ReparsePoint))
+                return false;
+
+            var text = File.ReadAllText(iniPath);
+            if (!IsSortTailOnly(text))
+                return false;
+
+            ClearFolderReadOnly(folder);
+            PrepareDesktopIniForWrite(iniPath);
+            File.Delete(iniPath);
+            NormalizeFolderAttributesAfterClear(folder);
+            return true;
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            ClickTrace.Step($"sort-tail remove skip '{folder}': {ex.Message}");
+            return false;
+        }
     }
 
     /// <summary>

@@ -2,6 +2,7 @@
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
+             xmlns:loc="clr-namespace:FolderManaging.Companion.Localization"
              Loaded="OnLoaded">
     <Grid Margin="36,24,36,24">
         <Grid.RowDefinitions>
@@ -15,10 +16,10 @@
         <StackPanel Grid.Row="0">
             <TextBlock FontSize="28" FontWeight="SemiBold"
                        Foreground="{DynamicResource TextFillColorPrimaryBrush}"
-                       Text="Контекстное меню" />
+                       Text="{loc:Loc MenuPageTitle}" />
             <TextBlock Margin="0,4,0,0" Opacity="0.85" TextWrapping="Wrap"
                        Foreground="{DynamicResource TextFillColorSecondaryBrush}"
-                       Text="Собери меню правого клика под себя: включай и выключай пункты, меняй порядок стрелками, переименовывай, добавляй разделители. Изменения применяются сразу — просто кликни правой кнопкой по папке ещё раз." />
+                       Text="{loc:Loc MenuPageHint}" />
         </StackPanel>
 
         <Border Grid.Row="1" Margin="0,14,0,0" Padding="14,10" CornerRadius="8"
@@ -33,7 +34,7 @@
                                Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
                 <TextBlock Grid.Column="1" FontSize="12" Opacity="0.95" TextWrapping="Wrap"
                            Foreground="{DynamicResource TextFillColorSecondaryBrush}"
-                           Text="Windows 11 в подменю не умеет настоящие разделители — вместо них ставится неактивная строка «────────». У приложения один пункт меню: если пунктов два и больше, Windows сама складывает их в группу «Folder Managing»." />
+                           Text="{loc:Loc MenuWin11Note}" />
             </Grid>
         </Border>
 
@@ -42,10 +43,10 @@
                 <StackPanel>
                     <TextBlock FontSize="14" FontWeight="SemiBold"
                                Foreground="{DynamicResource TextFillColorPrimaryBrush}"
-                               Text="Название пункта в меню" />
+                               Text="{loc:Loc ItemLabel}" />
                     <TextBlock Margin="0,2,0,0" FontSize="12" Opacity="0.85"
                                Foreground="{DynamicResource TextFillColorSecondaryBrush}"
-                               Text="То, что видно сразу после правого клика." />
+                               Text="{loc:Loc ItemLabelHint}" />
                 </StackPanel>
             </ui:CardControl.Header>
             <ui:TextBox x:Name="RootTitleBox" Width="260" PlaceholderText="Folder Manager"
@@ -69,7 +70,7 @@
                 <StackPanel>
                     <TextBlock FontSize="12" Opacity="0.85"
                                Foreground="{DynamicResource TextFillColorSecondaryBrush}"
-                               Text="Предпросмотр" />
+                               Text="{loc:Loc Preview}" />
                     <TextBlock x:Name="PreviewRootTitle" Margin="0,8,0,0" FontSize="14" FontWeight="SemiBold"
                                Foreground="{DynamicResource TextFillColorPrimaryBrush}"
                                Text="Folder Manager  ›" />
@@ -89,12 +90,12 @@
         <StackPanel Grid.Row="4" Margin="0,12,0,0" Orientation="Horizontal">
             <ui:Button Appearance="Secondary"
                        Icon="{ui:SymbolIcon Symbol=Add24}"
-                       Content="Добавить разделитель"
+                       Content="{loc:Loc AddSeparator}"
                        Click="OnAddSeparatorClick" />
             <ui:Button Margin="8,0,0,0"
                        Appearance="Caution"
                        Icon="{ui:SymbolIcon Symbol=ArrowReset24}"
-                       Content="Сбросить меню к стандартному"
+                       Content="{loc:Loc ResetMenu}"
                        Click="OnResetMenuClick" />
         </StackPanel>
     </Grid>

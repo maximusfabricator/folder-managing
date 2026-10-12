@@ -6,6 +6,12 @@
 *.suo
 *.DotSettings.user
 
+# sparse/props compiled resources (keep .rc / .csproj sources)
+sparse/props/*.dll
+sparse/props/*.res
+sparse/props/*.pdb
+sparse/props/RC*
+
 # Publish / packaging outputs
 artifacts/
 !artifacts/.gitkeep

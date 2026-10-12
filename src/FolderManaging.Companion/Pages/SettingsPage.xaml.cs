@@ -2,6 +2,7 @@ using System.Windows;
 using System.Windows.Controls;
 using FolderManaging.Core;
 using FolderManaging.Core.Diagnostics;
+using FolderManaging.Core.Localization;
 using FolderManaging.Core.Models;
 
 namespace FolderManaging.Companion.Pages;
@@ -23,6 +24,12 @@ public partial class SettingsPage : System.Windows.Controls.UserControl
             AutoElevateToggle.IsChecked = CompanionState.Document.AutoElevateProtectedFolders;
             SelectThemeCombo(CompanionState.Document.Theme);
             RefreshWorkerStatus();
+            if (AutostartService.IsAvailable)
+            {
+                AutostartCard.Visibility = Visibility.Visible;
+                AutostartToggle.IsChecked = AutostartService.IsEnabled();
+            }
+
             ClickTrace.Step($"settings loaded AutoElevate={AutoElevateToggle.IsChecked} theme={CompanionState.Document.Theme}");
         }
         finally
@@ -73,6 +80,32 @@ public partial class SettingsPage : System.Windows.Controls.UserControl
             _ => AppThemePreference.System,
         };
 
+    void OnAutostartChanged(object sender, RoutedEventArgs e)
+    {
+        if (_suppressToggleEvents)
+            return;
+
+        var enabled = AutostartToggle.IsChecked == true;
+        using var scope = ClickTrace.Begin("companion", "settings-autostart", detail: enabled ? "on" : "off");
+        try
+        {
+            AutostartService.SetEnabled(enabled);
+            ClickTrace.Ok();
+            scope.MarkFinished();
+        }
+        catch (Exception ex)
+        {
+            ClickTrace.Fail(ex);
+            scope.MarkFinished();
+            System.Windows.MessageBox.Show(
+                Window.GetWindow(this),
+                UiText.Format("AutostartFail", ex.Message),
+                "Folder Managing",
+                MessageBoxButton.OK,
+                MessageBoxImage.Warning);
+        }
+    }
+
     void OnAutoElevateChanged(object sender, RoutedEventArgs e)
     {
         if (_suppressToggleEvents)
@@ -103,7 +136,7 @@ public partial class SettingsPage : System.Windows.Controls.UserControl
 
                 System.Windows.MessageBox.Show(
                     Window.GetWindow(this),
-                    "Чтобы работать с системными папками без вопроса каждый раз, нужно один раз подтвердить права администратора (UAC).\n\n" +
+                    UiText.Get("AdminExplain") +
                     (string.IsNullOrWhiteSpace(err) ? "" : err),
                     "Folder Managing",
                     MessageBoxButton.OK,
@@ -147,7 +180,7 @@ public partial class SettingsPage : System.Windows.Controls.UserControl
             scope.MarkFinished();
             System.Windows.MessageBox.Show(
                 Window.GetWindow(this),
-                "Не удалось запустить службу. Подтвердите окно Windows (UAC), если оно появилось.\n" + err,
+                UiText.Format("ServiceStartFail", err),
                 "Folder Managing",
                 MessageBoxButton.OK,
                 MessageBoxImage.Warning);
@@ -166,12 +199,8 @@ public partial class SettingsPage : System.Windows.Controls.UserControl
     {
         var answer = System.Windows.MessageBox.Show(
             Window.GetWindow(this),
-            "Вернуть все настройки к стандартным?\n\n" +
-            "• Контекстное меню — как было изначально\n" +
-            "• Тема — как в системе\n" +
-            "• Права администратора для системных папок — включены\n\n" +
-            "Цвета, метки и покрашенные папки останутся.",
-            "Сброс настроек",
+            UiText.Get("ResetConfirmBody"),
+            UiText.Get("ResetSettings"),
             MessageBoxButton.YesNo,
             MessageBoxImage.Question);
         if (answer != MessageBoxResult.Yes)
@@ -199,8 +228,8 @@ public partial class SettingsPage : System.Windows.Controls.UserControl
 
         System.Windows.MessageBox.Show(
             Window.GetWindow(this),
-            "Готово. Новое меню появится при следующем правом клике по папке.",
-            "Сброс настроек",
+            UiText.Get("ResetDoneBody"),
+            UiText.Get("ResetSettings"),
             MessageBoxButton.OK,
             MessageBoxImage.Information);
     }
@@ -209,8 +238,8 @@ public partial class SettingsPage : System.Windows.Controls.UserControl
     {
         var running = ElevatedCliInvoker.IsWorkerRunning();
         WorkerStatusText.Text = running
-            ? "Статус: служба администратора запущена — системные папки можно менять без повторного UAC."
-            : "Статус: служба администратора не запущена. Включите переключатель (или кнопку ниже) и подтвердите UAC один раз.";
+            ? UiText.Get("StatusAdminOn")
+            : UiText.Get("StatusAdminOff");
         StartWorkerButton.IsEnabled = !running;
     }
 }

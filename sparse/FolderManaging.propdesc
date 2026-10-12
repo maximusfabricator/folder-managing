@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="utf-8"?>
+<schema xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xmlns="http://schemas.microsoft.com/windows/2006/propertydescription"
+        schemaVersion="1.0">
+  <!--
+    FolderManaging.ColorHue — numeric HSV hue 0–360 on colored folders only.
+    Uncolored folders have no value (sparse column). Sort UI: Lowest↔Highest.
+    Note: sortDescendingType is NOT a valid propdesc attribute; do not invent it.
+  -->
+  <propertyDescriptionList publisher="FolderManaging" product="FolderManaging">
+    <propertyDescription name="FolderManaging.ColorHue"
+                         formatID="{A7C4E8F1-2B3D-4E5F-9A0B-1C2D3E4F5A6B}"
+                         propID="2">
+      <description>Folder color hue (0-360). Sort ascending for rainbow order among colored folders.</description>
+      <searchInfo inInvertedIndex="false"
+                  isColumn="true"
+                  isColumnSparse="true"
+                  columnIndexType="OnDemand"
+                  maxSize="4" />
+      <typeInfo type="UInt32"
+                isInnate="false"
+                canBePurged="true"
+                multipleValues="false"
+                isGroup="false"
+                isViewable="true"
+                isQueryable="true" />
+      <labelInfo label="__FM_COLUMN_LABEL__"
+                 invitationText="Color"
+                 sortDescription="LowestHighest" />
+      <displayInfo displayType="Number" alignment="Right" defaultColumnWidth="12">
+        <numberFormat formatDuration="false" />
+      </displayInfo>
+    </propertyDescription>
+  </propertyDescriptionList>
+</schema>

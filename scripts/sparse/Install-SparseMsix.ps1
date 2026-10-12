@@ -134,6 +134,13 @@ function Resolve-SignTool {
     return $null
 }
 
+# The user edition (FolderManaging-Setup.exe) registers the same COM class / verb: never keep both.
+$userEdition = Get-AppxPackage -Name "FolderManaging" -ErrorAction SilentlyContinue
+if ($userEdition) {
+    Write-Host "Removing user edition package $($userEdition.PackageFullName)"
+    Remove-AppxPackage -Package $userEdition.PackageFullName
+}
+
 $existing = Get-AppxPackage -Name "FolderManagingSparseDev" -ErrorAction SilentlyContinue
 if ($existing) {
     Write-Host "Removing existing package $($existing.PackageFullName)"
@@ -201,6 +208,30 @@ if ($RestartExplorer -and $explorerWasRunning) {
     catch {
         Write-Warning "Failed to start explorer.exe: $($_.Exception.Message)"
     }
+}
+
+# Color-hue sort property (optional; needs Administrator for HKLM + PSRegisterPropertySchema).
+try {
+    $regScript = Join-Path $PSScriptRoot "Register-PropertySchema.ps1"
+    if (Test-Path -LiteralPath $regScript) {
+        $id = [Security.Principal.WindowsIdentity]::GetCurrent()
+        $principal = New-Object Security.Principal.WindowsPrincipal($id)
+        if ($principal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)) {
+            Write-Host "Registering FolderManaging.ColorHue property schema..."
+            & $regScript -RepoRoot (Resolve-Path (Join-Path $PSScriptRoot "..\..")).Path
+        }
+        else {
+            Write-Host @"
+Skipped Color hue property registration (not elevated).
+To enable Explorer Sort → Color hue (rainbow), run elevated:
+
+  .\scripts\sparse\Register-PropertySchema.ps1
+"@
+        }
+    }
+}
+catch {
+    Write-Warning "Property schema registration failed: $($_.Exception.Message)"
 }
 
 Write-Host "Done. If actions still do nothing, open the log at: %LocalAppData%\\FolderManaging\\shell-menu.log"
