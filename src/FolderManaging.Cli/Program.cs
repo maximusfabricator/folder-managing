@@ -2,6 +2,8 @@ using FolderManaging.Cli.Cli;
 using FolderManaging.Cli.Shell;
 using FolderManaging.Core;
 using FolderManaging.Core.Diagnostics;
+using FolderManaging.Core.Localization;
+using FolderManaging.Core.ShellProperties;
 using FolderManaging.Core.Storage;
 
 namespace FolderManaging.Cli;
@@ -10,6 +12,8 @@ internal static class Program
 {
     public static async Task<int> Main(string[] args)
     {
+        UiText.ApplyToProcess();
+
         if (args.Length > 0 &&
             string.Equals(args[0].Trim(), "--elevated-worker", StringComparison.OrdinalIgnoreCase))
         {
@@ -43,6 +47,70 @@ internal static class Program
             {
                 Console.Error.WriteLine(ex);
                 return 11;
+            }
+        }
+
+        if (args.Length > 0 &&
+            string.Equals(args[0].Trim(), "register-property-schema", StringComparison.OrdinalIgnoreCase))
+        {
+            try
+            {
+                string? propdesc = null;
+                for (var i = 1; i < args.Length; i++)
+                {
+                    var a = args[i].Trim();
+                    if (string.Equals(a, "--propdesc", StringComparison.OrdinalIgnoreCase))
+                    {
+                        if (i + 1 >= args.Length)
+                        {
+                            Console.Error.WriteLine("Missing value after --propdesc.");
+                            return 12;
+                        }
+
+                        propdesc = args[++i].Trim().Trim('"');
+                        continue;
+                    }
+
+                    Console.Error.WriteLine($"Unknown argument: {a}");
+                    return 12;
+                }
+
+                // Rating←ColorHue map is required; .propdesc is optional (custom name rarely shows for folders).
+                var source = PropertySchemaRegistration.TryFindBundledPropdesc(propdesc);
+                PropertySchemaRegistration.Register(source);
+                Console.WriteLine(source is null
+                    ? "Registered DesktopIniPropertyMap for ColorHue (and Rating fallback)."
+                    : $"Registered ColorHue schema + maps from '{source}'.");
+                Console.WriteLine("Explorer: Sort → More… → \"" + UiText.Get("ColumnName") + "\" → ascending.");
+                Console.WriteLine("Fallback columns: Tags / Title.");
+                return 0;
+            }
+            catch (UnauthorizedAccessException ex)
+            {
+                Console.Error.WriteLine(ex.Message);
+                Console.Error.WriteLine("Run this command elevated (Administrator).");
+                return 12;
+            }
+            catch (Exception ex)
+            {
+                Console.Error.WriteLine(ex);
+                return 12;
+            }
+        }
+
+        if (args.Length > 0 &&
+            string.Equals(args[0].Trim(), "unregister-property-schema", StringComparison.OrdinalIgnoreCase))
+        {
+            try
+            {
+                PropertySchemaRegistration.Unregister();
+                Console.WriteLine("Unregistered FolderManaging property schema (best-effort).");
+                return 0;
+            }
+            catch (Exception ex)
+            {
+                Console.Error.WriteLine(ex);
+                return 13;
             }
         }
 

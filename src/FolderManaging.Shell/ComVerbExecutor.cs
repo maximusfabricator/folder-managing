@@ -19,6 +19,7 @@ internal static class ComVerbExecutor
         var editor = new FolderStateEditor(new JsonFolderStateStore());
         editor.SetColorTokenAsync(folderPath, colorId, CancellationToken.None).GetAwaiter().GetResult();
         ClickTrace.Step("state.json colorToken saved");
+        UserFeedback.MaybeShowColorSortTip();
     }
 
     internal static void ResetColor(string folderPath)
@@ -84,5 +85,6 @@ internal static class ComVerbExecutor
         var editor = new FolderStateEditor(new JsonFolderStateStore());
         editor.SetColorTokenAsync(folderPath, $"rgb-{hexRgb.ToLowerInvariant()}", CancellationToken.None).GetAwaiter().GetResult();
         ClickTrace.Step("state.json colorToken saved");
+        UserFeedback.MaybeShowColorSortTip();
     }
 }

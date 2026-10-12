@@ -3,6 +3,7 @@ using System.Windows;
 using System.Windows.Controls;
 using FolderManaging.Core;
 using FolderManaging.Core.Diagnostics;
+using FolderManaging.Core.Localization;
 using FolderManaging.Core.Models;
 namespace FolderManaging.Companion.Pages;
 
@@ -24,7 +25,7 @@ public sealed class ManagedFolderRow
 
     public string TagsDisplay => FormatTags(Entry.Tags, Document);
 
-    public string PinnedDisplay => Entry.IsPinned ? "Да" : "Нет";
+    public string PinnedDisplay => Entry.IsPinned ? UiText.Get("Yes") : UiText.Get("No");
 
     static string FormatColor(string? token, AppStateDocument doc)
     {

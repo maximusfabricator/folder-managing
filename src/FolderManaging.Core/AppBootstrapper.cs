@@ -1,4 +1,5 @@
 using FolderManaging.Core.Diagnostics;
+using FolderManaging.Core.Localization;
 using FolderManaging.Core.Storage;
 
 namespace FolderManaging.Core;
@@ -16,6 +17,7 @@ public static class AppBootstrapper
     {
         try
         {
+            UiText.ApplyToProcess();
             FolderIconManager.EnsureMenuIconsForAllPresets();
         }
         catch (Exception ex)

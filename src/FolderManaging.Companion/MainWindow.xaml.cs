@@ -3,6 +3,7 @@ using System.IO;
 using System.Windows;
 using System.Windows.Forms;
 using FolderManaging.Core;
+using FolderManaging.Core.Localization;
 using FolderManaging.Core.Diagnostics;
 using Wpf.Ui.Controls;
 
@@ -13,6 +14,9 @@ public partial class MainWindow : FluentWindow
     public MainWindow()
     {
         InitializeComponent();
+#if !FM_DEV
+        LogsNavItem.Content = UiText.Get("NavErrorLog");
+#endif
         Loaded += OnLoaded;
     }
 
@@ -40,7 +44,7 @@ public partial class MainWindow : FluentWindow
         try
         {
             TraceLog.EnsureLogLocationsHint();
-            var dir = TraceLog.ProfileLogDirectory;
+            var dir = TraceLog.UserVisibleLogDirectory;
             Directory.CreateDirectory(dir);
             Process.Start(new ProcessStartInfo
             {
@@ -56,7 +60,7 @@ public partial class MainWindow : FluentWindow
             scope.MarkFinished();
             System.Windows.MessageBox.Show(
                 this,
-                $"Не удалось открыть папку логов:\n{ex.Message}\n\nИщите shell-menu.log в:\n{TraceLog.ProfileLogDirectory}\n{TraceLog.LocalAppDataLogDirectory}",
+                UiText.Format("OpenLogsFail", ex.Message, TraceLog.UserVisibleLogDirectory),
                 "Folder Managing",
                 System.Windows.MessageBoxButton.OK,
                 System.Windows.MessageBoxImage.Warning);
@@ -69,7 +73,7 @@ public partial class MainWindow : FluentWindow
     {
         using var dlg = new FolderBrowserDialog
         {
-            Description = "Выберите папку, чтобы сбросить значок (desktop.ini).",
+            Description = UiText.Get("PickResetFolder"),
             UseDescriptionForTitle = true,
         };
 
@@ -88,7 +92,7 @@ public partial class MainWindow : FluentWindow
             scope.MarkFinished();
             System.Windows.MessageBox.Show(
                 this,
-                "Стандартный жёлтый значок появится после обновления окна проводника (F5).",
+                UiText.Get("IconResetOk"),
                 "Folder Managing",
                 System.Windows.MessageBoxButton.OK,
                 System.Windows.MessageBoxImage.Information);
@@ -102,7 +106,7 @@ public partial class MainWindow : FluentWindow
                 scope.MarkFinished();
                 System.Windows.MessageBox.Show(
                     this,
-                    $"Не удалось сбросить значок (нужны права администратора):\n{dlg.SelectedPath}\n\n{ex.Message}",
+                    UiText.Format("IconResetFail", dlg.SelectedPath, ex.Message),
                     "Folder Managing",
                     System.Windows.MessageBoxButton.OK,
                     System.Windows.MessageBoxImage.Warning);
@@ -113,7 +117,7 @@ public partial class MainWindow : FluentWindow
             scope.MarkFinished();
             System.Windows.MessageBox.Show(
                 this,
-                "Стандартный жёлтый значок появится после обновления окна проводника (F5).",
+                UiText.Get("IconResetOk"),
                 "Folder Managing",
                 System.Windows.MessageBoxButton.OK,
                 System.Windows.MessageBoxImage.Information);
@@ -138,7 +142,7 @@ public partial class MainWindow : FluentWindow
         {
             var answer = System.Windows.MessageBox.Show(
                 this,
-                $"Windows защищает эту папку:\n{path}\n\nПовторить сброс с правами администратора?",
+                UiText.Format("ResetUac", path),
                 "Folder Managing",
                 System.Windows.MessageBoxButton.YesNo,
                 System.Windows.MessageBoxImage.Warning);

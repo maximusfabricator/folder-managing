@@ -3,6 +3,7 @@ using System.Windows.Forms;
 using System.Windows.Media;
 using FolderManaging.Core;
 using FolderManaging.Core.Diagnostics;
+using FolderManaging.Core.Localization;
 using FolderManaging.Core.Storage;
 using Wpf.Ui.Controls;
 using MediaColor = System.Windows.Media.Color;
@@ -53,7 +54,7 @@ public partial class QuickColorWindow : FluentWindow
     {
         using var dlg = new FolderBrowserDialog
         {
-            Description = "Выберите папку для покраски",
+            Description = UiText.Get("PickPaintFolder"),
             UseDescriptionForTitle = true,
             SelectedPath = _folderPath ?? Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
         };
@@ -101,7 +102,7 @@ public partial class QuickColorWindow : FluentWindow
                 {
                     var answer = System.Windows.MessageBox.Show(
                         this,
-                        $"Windows защищает эту папку:\n{path}\n\nПовторить с правами администратора?",
+                        UiText.Format("UacProtected", path),
                         "Folder Managing",
                         MessageBoxButton.YesNo,
                         MessageBoxImage.Warning);
@@ -137,7 +138,7 @@ public partial class QuickColorWindow : FluentWindow
             scope.MarkFinished();
             System.Windows.MessageBox.Show(
                 this,
-                $"Не удалось покрасить папку:\n{ex.Message}",
+                UiText.Format("PaintFail", ex.Message),
                 "Folder Managing",
                 MessageBoxButton.OK,
                 MessageBoxImage.Warning);
@@ -152,7 +153,7 @@ public partial class QuickColorWindow : FluentWindow
     void SetBusy(bool busy)
     {
         ApplyButton.IsEnabled = !busy;
-        ApplyButton.Content = busy ? "Крашу…" : "Покрасить";
+        ApplyButton.Content = busy ? UiText.Get("Painting") : UiText.Get("Paint");
         Wheel.IsEnabled = !busy;
         BrightnessSlider.IsEnabled = !busy;
     }

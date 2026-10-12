@@ -1,5 +1,7 @@
 namespace FolderManaging.Core.Models;
 
+using FolderManaging.Core.Localization;
+
 /// <summary>Building blocks the user can arrange inside the "Folder Manager" context-menu entry.</summary>
 public static class ContextMenuItemKinds
 {
@@ -20,22 +22,22 @@ public static class ContextMenuItemKinds
 
     public static string DefaultLabel(string kind) => kind switch
     {
-        QuickColor => "🎨 Quick color…",
-        Reset => "↩ Restore default folder icon",
-        Settings => "⚙️ Folder Manager Settings",
+        QuickColor => UiText.Get("LabelQuick"),
+        Reset => UiText.Get("LabelReset"),
+        Settings => UiText.Get("LabelSettings"),
         _ => string.Empty,
     };
 
     public static string DisplayName(string kind) => kind switch
     {
-        Pin => "Закрепить / открепить в быстром доступе",
-        QuickColor => "Круг цветов (окно)",
-        ColorPresets => "Мои цвета (пресеты)",
-        SystemPalette => "Системная палитра (13 готовых цветов)",
-        Reset => "Сбросить значок папки",
-        Tags => "Метки",
-        Settings => "Открыть настройки",
-        Separator => "── Разделитель ──",
+        Pin => UiText.Get("KindPin"),
+        QuickColor => UiText.Get("KindQuick"),
+        ColorPresets => UiText.Get("KindPresets"),
+        SystemPalette => UiText.Get("KindPalette"),
+        Reset => UiText.Get("KindReset"),
+        Tags => UiText.Get("KindTags"),
+        Settings => UiText.Get("KindSettings"),
+        Separator => UiText.Get("KindSeparator"),
         _ => kind,
     };
 }

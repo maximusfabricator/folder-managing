@@ -2,6 +2,7 @@ using System.Drawing;
 using System.Windows;
 using System.Windows.Forms;
 using FolderManaging.Core.Diagnostics;
+using FolderManaging.Core.Localization;
 
 namespace FolderManaging.Companion;
 
@@ -15,10 +16,10 @@ internal sealed class TrayIconService : IDisposable
     internal TrayIconService()
     {
         var menu = new ContextMenuStrip();
-        menu.Items.Add("Покрасить папку…", null, (_, _) => OpenQuickColor());
+        menu.Items.Add(UiText.Get("TrayPaint"), null, (_, _) => OpenQuickColor());
         menu.Items.Add(new ToolStripSeparator());
-        menu.Items.Add("Открыть настройки", null, (_, _) => ShowMainWindow());
-        menu.Items.Add("Выход", null, (_, _) => ExitApp());
+        menu.Items.Add(UiText.Get("TraySettings"), null, (_, _) => ShowMainWindow());
+        menu.Items.Add(UiText.Get("TrayExit"), null, (_, _) => ExitApp());
 
         _icon = new NotifyIcon
         {

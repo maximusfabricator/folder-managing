@@ -111,6 +111,13 @@ if (-not (Test-Path -LiteralPath $companionExe)) {
 Write-Host "Copying manifest"
 Copy-Item -Force (Join-Path $RepoRoot "sparse\AppxManifest.xml") (Join-Path $layout "AppxManifest.xml")
 
+$propdescSrc = Join-Path $RepoRoot "sparse\FolderManaging.propdesc"
+if (-not (Test-Path -LiteralPath $propdescSrc)) {
+    throw "Missing property schema: $propdescSrc"
+}
+Copy-Item -Force $propdescSrc (Join-Path $layout "FolderManaging.propdesc")
+Write-Host "Copied FolderManaging.propdesc (Color hue sort schema)"
+
 Write-Host "Generating placeholder PNG assets"
 Add-Type -AssemblyName System.Drawing
 $assets = Join-Path $layout "Assets"

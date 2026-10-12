@@ -19,6 +19,7 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <UseWPF>true</UseWPF>
     <UseWindowsForms>true</UseWindowsForms>
+    <ApplicationIcon>..\..\assets\FolderManaging.ico</ApplicationIcon>
   </PropertyGroup>
 
 </Project>

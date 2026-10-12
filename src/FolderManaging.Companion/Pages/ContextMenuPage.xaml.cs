@@ -1,6 +1,7 @@
 using System.Windows;
 using System.Windows.Controls;
 using FolderManaging.Core.Diagnostics;
+using FolderManaging.Core.Localization;
 using FolderManaging.Core.Models;
 using Wpf.Ui.Controls;
 using WpfButton = Wpf.Ui.Controls.Button;
@@ -89,8 +90,8 @@ public partial class ContextMenuPage : System.Windows.Controls.UserControl
 
         System.Windows.MessageBox.Show(
             Window.GetWindow(this),
-            "Между всеми блоками уже есть разделители.\nПередвинь существующий стрелками ↑↓ или удали лишний.",
-            "Контекстное меню",
+            UiText.Get("SeparatorsFull"),
+            UiText.Get("MenuPageTitle"),
             System.Windows.MessageBoxButton.OK,
             System.Windows.MessageBoxImage.Information);
     }
@@ -99,8 +100,8 @@ public partial class ContextMenuPage : System.Windows.Controls.UserControl
     {
         var answer = System.Windows.MessageBox.Show(
             Window.GetWindow(this),
-            "Вернуть контекстное меню к стандартному виду?",
-            "Контекстное меню",
+            UiText.Get("ResetMenuConfirm"),
+            UiText.Get("MenuPageTitle"),
             System.Windows.MessageBoxButton.YesNo,
             System.Windows.MessageBoxImage.Question);
         if (answer != System.Windows.MessageBoxResult.Yes)
@@ -162,7 +163,7 @@ public partial class ContextMenuPage : System.Windows.Controls.UserControl
                 IsChecked = entry.Visible,
                 VerticalAlignment = VerticalAlignment.Center,
                 Margin = new Thickness(0, 0, 12, 0),
-                ToolTip = "Показывать в меню",
+                ToolTip = UiText.Get("ShowInMenu"),
             };
             toggle.Click += (_, _) =>
             {
@@ -199,7 +200,7 @@ public partial class ContextMenuPage : System.Windows.Controls.UserControl
                 VerticalAlignment = VerticalAlignment.Center,
                 PlaceholderText = ContextMenuItemKinds.DefaultLabel(entry.Kind),
                 Text = entry.Label ?? string.Empty,
-                ToolTip = "Своё название (пусто — стандартное)",
+                ToolTip = UiText.Get("CustomLabelEmpty"),
             };
             labelBox.TextChanged += (_, _) =>
             {
@@ -211,11 +212,11 @@ public partial class ContextMenuPage : System.Windows.Controls.UserControl
         }
 
         var buttons = new StackPanel { Orientation = System.Windows.Controls.Orientation.Horizontal, Margin = new Thickness(8, 0, 0, 0) };
-        buttons.Children.Add(MakeIconButton(SymbolRegular.ArrowUp24, "Выше", index > 0, () => Move(index, -1)));
-        buttons.Children.Add(MakeIconButton(SymbolRegular.ArrowDown24, "Ниже", index < _layout.Entries.Count - 1, () => Move(index, +1)));
+        buttons.Children.Add(MakeIconButton(SymbolRegular.ArrowUp24, UiText.Get("MoveUp"), index > 0, () => Move(index, -1)));
+        buttons.Children.Add(MakeIconButton(SymbolRegular.ArrowDown24, UiText.Get("MoveDown"), index < _layout.Entries.Count - 1, () => Move(index, +1)));
         if (isSeparator)
         {
-            buttons.Children.Add(MakeIconButton(SymbolRegular.Delete24, "Удалить разделитель", true, () =>
+            buttons.Children.Add(MakeIconButton(SymbolRegular.Delete24, UiText.Get("DeleteSeparator"), true, () =>
             {
                 _layout.Entries.RemoveAt(index);
                 CommitLayout("remove separator");
@@ -265,22 +266,22 @@ public partial class ContextMenuPage : System.Windows.Controls.UserControl
         var doc = CompanionState.Document;
         return kind switch
         {
-            ContextMenuItemKinds.Pin => "Показывается нужный из двух: Pin или Unpin.",
-            ContextMenuItemKinds.QuickColor => "Открывает окно с кругом — любой цвет точкой.",
+            ContextMenuItemKinds.Pin => UiText.Get("NotePin"),
+            ContextMenuItemKinds.QuickColor => UiText.Get("NoteQuick"),
             ContextMenuItemKinds.ColorPresets => PresetRows(doc).Count switch
             {
-                0 => "Сейчас цветов нет — в меню ничего не появится. Добавь на странице «Цвета папок».",
-                var n => $"Сейчас: {n} — каждый отдельной строкой.",
+                0 => UiText.Get("NotePresetsEmpty"),
+                var n => UiText.Format("NotePresetsCount", n),
             },
-            ContextMenuItemKinds.SystemPalette => "Red, Orange, Yellow, … Gray — фиксированный набор, 13 строк.",
-            ContextMenuItemKinds.Reset => "Возвращает обычный жёлтый значок.",
+            ContextMenuItemKinds.SystemPalette => UiText.Get("NotePalette"),
+            ContextMenuItemKinds.Reset => UiText.Get("NoteReset"),
             ContextMenuItemKinds.Tags => TagRows(doc).Count switch
             {
-                0 => "Сейчас меток нет — в меню ничего не появится.",
-                var n => $"Сейчас: {n} — каждая отдельной строкой.",
+                0 => UiText.Get("NoteTagsEmpty"),
+                var n => UiText.Format("NoteTagsCount", n),
             },
-            ContextMenuItemKinds.Settings => "Открывает это приложение.",
-            ContextMenuItemKinds.Separator => "В ПКМ — неактивная строка «────────» без иконки. В конце списка в Проводнике не видна — поставь её между блоками стрелками.",
+            ContextMenuItemKinds.Settings => UiText.Get("NoteSettings"),
+            ContextMenuItemKinds.Separator => UiText.Get("NoteSeparator"),
             _ => string.Empty,
         };
     }
@@ -305,24 +306,24 @@ public partial class ContextMenuPage : System.Windows.Controls.UserControl
                     lines.Add(("──────────────", true));
                     break;
                 case ContextMenuItemKinds.Pin:
-                    lines.Add(("📌 Pin folder / Unpin folder", false));
+                    lines.Add((UiText.Get("Pin") + " / " + UiText.Get("Unpin"), false));
                     break;
                 case ContextMenuItemKinds.ColorPresets:
                     foreach (var r in PresetRows(doc))
                     {
                         var t = !string.IsNullOrWhiteSpace(r.Label)
-                            ? $"🎨 Color — {r.Label}"
-                            : $"🎨 Color #{r.HexRgb?.Trim().TrimStart('#').ToUpperInvariant()}";
+                            ? UiText.Format("ColorLine", r.Label)
+                            : UiText.Format("ColorHex", r.HexRgb?.Trim().TrimStart('#').ToUpperInvariant() ?? "");
                         lines.Add((t, false));
                     }
                     break;
                 case ContextMenuItemKinds.SystemPalette:
-                    foreach (var n in new[] { "Red", "Orange", "Yellow", "Lime", "Green", "Teal", "Cyan", "Blue", "Indigo", "Purple", "Pink", "Brown", "Gray" })
-                        lines.Add(($"🎨 {n}", false));
+                    foreach (var key in new[] { "PalRed", "PalOrange", "PalYellow", "PalLime", "PalGreen", "PalTeal", "PalCyan", "PalBlue", "PalIndigo", "PalPurple", "PalPink", "PalBrown", "PalGray" })
+                        lines.Add((UiText.Format("ColorLine", UiText.Get(key)), false));
                     break;
                 case ContextMenuItemKinds.Tags:
                     foreach (var t in TagRows(doc))
-                        lines.Add(($"🏷️ Tag — {t.Label}", false));
+                        lines.Add((UiText.Format("TagLine", t.Label), false));
                     break;
                 default:
                     lines.Add((label, false));
@@ -340,8 +341,8 @@ public partial class ContextMenuPage : System.Windows.Controls.UserControl
 
         var count = lines.Count(l => l.Text is not null && !l.Dim);
         PreviewCount.Text = count == 0
-            ? "Меню пустое — включи хотя бы один пункт."
-            : $"Строк в меню: {count} (+ линии-разделители).";
+            ? UiText.Get("MenuEmpty")
+            : UiText.Format("MenuLineCount", count);
         PreviewCount.SetResourceReference(WpfTextBlock.ForegroundProperty, "TextFillColorSecondaryBrush");
     }
 

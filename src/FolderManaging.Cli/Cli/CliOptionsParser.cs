@@ -14,6 +14,7 @@ internal static class CliOptionsParser
             return new CliHelpRequested(UsageText);
         }
 
+#if FM_DEV
         var head = args[0].Trim();
         if (head.Equals("install-context-menu", StringComparison.OrdinalIgnoreCase))
         {
@@ -29,6 +30,7 @@ internal static class CliOptionsParser
         {
             return ParseShellPreview(args);
         }
+#endif
 
         return ParseVerbInvocation(args);
     }
@@ -295,12 +297,24 @@ internal static class CliOptionsParser
         return true;
     }
 
-    internal const string UsageText = """
-        FolderManaging CLI
+#if FM_DEV
+    const string DevUsageText = """
 
-        Context menu (per-user, HKCU):
+        Dev only — legacy context menu (per-user, HKCU):
           FolderManaging.Cli install-context-menu [--exe "<path-to-cli.exe>"]
           FolderManaging.Cli uninstall-context-menu
+
+        Dev only — shell extension preview (no persistence):
+          FolderManaging.Cli shell-preview --kind <pin|unpin|color|tag> --path "<folder>" [--token <id>]
+        """;
+#else
+    const string DevUsageText = "";
+#endif
+
+    internal const string UsageText = BaseUsageText + DevUsageText;
+
+    const string BaseUsageText = """
+        FolderManaging CLI
 
         Explorer invokes:
           FolderManaging.Cli --action <color|reset|tag|pin|unpin> --path "<folder>" [--value <token>] [--tag <name>]
@@ -314,8 +328,10 @@ internal static class CliOptionsParser
         Clear Explorer icon caches and restart explorer.exe (run after desktop.ini changes if icons stay stale):
           FolderManaging.Cli force-refresh-icons
 
-        Shell extension preview (no persistence):
-          FolderManaging.Cli shell-preview --kind <pin|unpin|color|tag> --path "<folder>" [--token <id>]
+        Register Explorer "Color hue" property (Administrator — enables Sort by Color hue / rainbow):
+          FolderManaging.Cli register-property-schema [--propdesc "<path-to-FolderManaging.propdesc>"]
+            (Admin: maps ColorHue → Rating for Sort. Comments/InfoTip sort needs no register.)
+          FolderManaging.Cli unregister-property-schema
 
         Examples:
           FolderManaging.Cli --action color --value mint --path "D:\Work\Demo"

@@ -5,6 +5,7 @@ using System.Security.AccessControl;
 using System.Security.Principal;
 using System.Text;
 using FolderManaging.Core.Diagnostics;
+using FolderManaging.Core.Localization;
 using FolderManaging.Core.Storage;
 
 namespace FolderManaging.Core;
@@ -190,8 +191,17 @@ public static class ElevatedCliInvoker
                 return 20;
             }
 
+            UiText.ApplyToProcess();
             TraceLog.Append("shell-menu.log", $"[WORKER] listening pipe={PipeName}");
             ClickTrace.Step($"elevated worker listening on {PipeName}");
+            try
+            {
+                ShellProperties.PropertySchemaRegistration.SyncColumnLabelForCurrentLanguage();
+            }
+            catch (Exception ex)
+            {
+                ClickTrace.Step($"column label sync failed: {ex.Message}");
+            }
 
             using var cts = new CancellationTokenSource();
             Console.CancelKeyPress += (_, e) =>

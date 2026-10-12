@@ -2,53 +2,70 @@
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
+             xmlns:loc="clr-namespace:FolderManaging.Companion.Localization"
              Loaded="OnLoaded">
     <ScrollViewer VerticalScrollBarVisibility="Auto">
         <StackPanel Margin="36,24,36,24">
-            <TextBlock Style="{StaticResource FmText}" FontSize="28" FontWeight="SemiBold" Text="Настройки" />
+            <TextBlock Style="{StaticResource FmText}" FontSize="28" FontWeight="SemiBold" Text="{loc:Loc SettingsTitle}" />
             <TextBlock Style="{StaticResource FmTextSecondary}" Margin="0,4,0,0" Opacity="0.65" TextWrapping="Wrap"
-                       Text="Параметры поведения Folder Managing в Проводнике и Companion." />
+                       Text="{loc:Loc SettingsHint}" />
 
             <ui:CardControl Margin="0,20,0,0" Padding="16,14">
                 <ui:CardControl.Header>
                     <StackPanel>
                         <TextBlock Style="{StaticResource FmText}" FontSize="14" FontWeight="SemiBold"
-                                   Text="Оформление" />
+                                   Text="{loc:Loc Appearance}" />
                         <TextBlock Style="{StaticResource FmTextSecondary}" Margin="0,4,0,0" FontSize="12" Opacity="0.65" TextWrapping="Wrap"
-                                   Text="Светлая или тёмная тема в стиле Windows 11. «Как в системе» — следует за настройками Windows." />
+                                   Text="{loc:Loc AppearanceHint}" />
                     </StackPanel>
                 </ui:CardControl.Header>
                 <ComboBox x:Name="ThemeCombo"
                           MinWidth="260"
                           HorizontalAlignment="Left"
                           SelectionChanged="OnThemeChanged">
-                    <ComboBoxItem Tag="System" Content="Как в системе" />
-                    <ComboBoxItem Tag="Light" Content="Светлая" />
-                    <ComboBoxItem Tag="Dark" Content="Тёмная" />
+                    <ComboBoxItem Tag="System" Content="{loc:Loc ThemeSystem}" />
+                    <ComboBoxItem Tag="Light" Content="{loc:Loc ThemeLight}" />
+                    <ComboBoxItem Tag="Dark" Content="{loc:Loc ThemeDark}" />
                 </ComboBox>
+            </ui:CardControl>
+
+            <ui:CardControl x:Name="AutostartCard" Margin="0,12,0,0" Padding="16,14" Visibility="Collapsed">
+                <ui:CardControl.Header>
+                    <StackPanel>
+                        <TextBlock Style="{StaticResource FmText}" FontSize="14" FontWeight="SemiBold"
+                                   Text="{loc:Loc Autostart}" />
+                        <TextBlock Style="{StaticResource FmTextSecondary}" Margin="0,4,0,0" FontSize="12" Opacity="0.65" TextWrapping="Wrap"
+                                   Text="{loc:Loc AutostartHint}" />
+                    </StackPanel>
+                </ui:CardControl.Header>
+                <ui:ToggleSwitch x:Name="AutostartToggle"
+                                 OffContent="{loc:Loc Off}"
+                                 OnContent="{loc:Loc On}"
+                                 Checked="OnAutostartChanged"
+                                 Unchecked="OnAutostartChanged" />
             </ui:CardControl>
 
             <ui:CardControl Margin="0,12,0,0" Padding="16,14">
                 <ui:CardControl.Header>
                     <StackPanel>
                         <TextBlock Style="{StaticResource FmText}" FontSize="14" FontWeight="SemiBold"
-                                   Text="Права администратора для системных папок" />
+                                   Text="{loc:Loc AdminRights}" />
                         <TextBlock Style="{StaticResource FmTextSecondary}" Margin="0,4,0,0" FontSize="12" Opacity="0.65" TextWrapping="Wrap"
-                                   Text="Включите один раз и подтвердите окно Windows (UAC). После этого покраска и сброс на Program Files и подобных папках идут без повторных вопросов, пока служба работает." />
+                                   Text="{loc:Loc AdminRightsHint}" />
                         <TextBlock Style="{StaticResource FmTextSecondary}" x:Name="WorkerStatusText" Margin="0,8,0,0" FontSize="12" Opacity="0.85" TextWrapping="Wrap"
-                                   Text="Статус: …" />
+                                   Text="{loc:Loc StatusPending}" />
                     </StackPanel>
                 </ui:CardControl.Header>
                 <StackPanel>
                     <ui:ToggleSwitch x:Name="AutoElevateToggle"
-                                     OffContent="Выкл"
-                                     OnContent="Вкл"
+                                     OffContent="{loc:Loc Off}"
+                                     OnContent="{loc:Loc On}"
                                      Checked="OnAutoElevateChanged"
                                      Unchecked="OnAutoElevateChanged" />
                     <ui:Button x:Name="StartWorkerButton"
                                Margin="0,12,0,0"
                                Appearance="Secondary"
-                               Content="Запустить службу администратора…"
+                               Content="{loc:Loc StartAdminService}"
                                Click="OnStartWorkerClick" />
                 </StackPanel>
             </ui:CardControl>
@@ -57,14 +74,14 @@
                 <ui:CardControl.Header>
                     <StackPanel>
                         <TextBlock Style="{StaticResource FmText}" FontSize="14" FontWeight="SemiBold"
-                                   Text="Контекстное меню" />
+                                   Text="{loc:Loc ContextMenuCard}" />
                         <TextBlock Style="{StaticResource FmTextSecondary}" Margin="0,4,0,0" FontSize="12" Opacity="0.65" TextWrapping="Wrap"
-                                   Text="Порядок, видимость и названия пунктов «Folder Manager» — на странице «Контекстное меню»." />
+                                   Text="{loc:Loc ContextMenuCardHint}" />
                     </StackPanel>
                 </ui:CardControl.Header>
                 <ui:Button Appearance="Secondary"
                            Icon="{ui:SymbolIcon Symbol=Edit24}"
-                           Content="Настроить меню…"
+                           Content="{loc:Loc ConfigureMenu}"
                            Click="OnOpenContextMenuPageClick" />
             </ui:CardControl>
 
@@ -72,14 +89,14 @@
                 <ui:CardControl.Header>
                     <StackPanel>
                         <TextBlock Style="{StaticResource FmText}" FontSize="14" FontWeight="SemiBold"
-                                   Text="Сброс настроек" />
+                                   Text="{loc:Loc ResetSettingsCard}" />
                         <TextBlock Style="{StaticResource FmTextSecondary}" Margin="0,4,0,0" FontSize="12" Opacity="0.65" TextWrapping="Wrap"
-                                   Text="Возвращает контекстное меню и все параметры к стандартным. Твои цвета, метки и покрашенные папки не трогаются." />
+                                   Text="{loc:Loc ResetSettingsHint}" />
                     </StackPanel>
                 </ui:CardControl.Header>
                 <ui:Button Appearance="Caution"
                            Icon="{ui:SymbolIcon Symbol=ArrowReset24}"
-                           Content="Сбросить настройки"
+                           Content="{loc:Loc ResetSettings}"
                            Click="OnResetSettingsClick" />
             </ui:CardControl>
         </StackPanel>

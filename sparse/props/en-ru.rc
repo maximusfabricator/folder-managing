@@ -1,0 +1,13 @@
+#pragma code_page(65001)
+
+LANGUAGE 0x09, 0x01
+STRINGTABLE
+BEGIN
+    101 "Folder color"
+END
+
+LANGUAGE 0x19, 0x01
+STRINGTABLE
+BEGIN
+    101 "Цвет папки"
+END

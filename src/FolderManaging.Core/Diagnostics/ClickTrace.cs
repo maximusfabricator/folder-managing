@@ -9,6 +9,7 @@ namespace FolderManaging.Core.Diagnostics;
 public static class ClickTrace
 {
     static readonly AsyncLocal<string?> CurrentId = new();
+    static readonly AsyncLocal<string?> CurrentContext = new();
     static int _seq;
 
     public static string? Current => CurrentId.Value;
@@ -21,6 +22,7 @@ public static class ClickTrace
         TraceLog.EnsureLogLocationsHint();
         var detailPart = string.IsNullOrWhiteSpace(detail) ? "" : $" detail={detail}";
         var pathPart = string.IsNullOrWhiteSpace(path) ? "" : $" path='{path}'";
+        CurrentContext.Value = $"{source}/{action}{detailPart}{pathPart}";
         Write(id, $"START source={source} action={action}{detailPart}{pathPart} pid={Environment.ProcessId}");
         return new Scope(id);
     }
@@ -47,16 +49,16 @@ public static class ClickTrace
     public static void Fail(Exception ex)
     {
         var id = CurrentId.Value ?? "????";
-        Write(id, $"RESULT=FAIL type={ex.GetType().Name} message={ex.Message}");
+        Write(id, $"RESULT=FAIL [{CurrentContext.Value}] type={ex.GetType().Name} message={ex.Message}");
         if (ex.InnerException is not null)
-            Write(id, $"INNER type={ex.InnerException.GetType().Name} message={ex.InnerException.Message}");
+            Write(id, $"FAIL-INNER type={ex.InnerException.GetType().Name} message={ex.InnerException.Message}");
         CurrentId.Value = null;
     }
 
     public static void Fail(string reason)
     {
         var id = CurrentId.Value ?? "????";
-        Write(id, $"RESULT=FAIL {reason}");
+        Write(id, $"RESULT=FAIL [{CurrentContext.Value}] {reason}");
         CurrentId.Value = null;
     }
 

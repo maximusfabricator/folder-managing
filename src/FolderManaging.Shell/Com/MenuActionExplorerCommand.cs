@@ -123,8 +123,6 @@ internal sealed class MenuActionExplorerCommand : Shell32.IExplorerCommand
         ClickTrace.Scope? click = null;
         try
         {
-            IdentityWriteProbe.WritePublicIdentityTest();
-
             click = ClickTrace.Begin(
                 source: "context-menu",
                 action: _kind,
@@ -270,11 +268,9 @@ internal sealed class MenuActionExplorerCommand : Shell32.IExplorerCommand
                         return HRESULT.S_OK;
 
                     default:
-                        ExtremeLogger.Log($"[COM] [PROCESS] dispatch -> ShellCliLauncher.TryLaunchShellPreview kind={_kind}");
-                        ShellCliLauncher.TryLaunchShellPreview(_kind, path ?? string.Empty, _token);
-                        ClickTrace.Ok($"shell-preview kind={_kind}");
+                        ClickTrace.Fail($"unknown menu kind={_kind}");
                         click.MarkFinished();
-                        return HRESULT.S_OK;
+                        return HRESULT.E_NOTIMPL;
                 }
             }
             catch (Exception ex)
