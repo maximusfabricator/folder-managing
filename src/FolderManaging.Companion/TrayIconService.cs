@@ -108,12 +108,28 @@ internal sealed class TrayIconService : IDisposable
     {
         try
         {
-            var uri = new Uri("pack://application:,,,/Assets/logo.png", UriKind.Absolute);
+            var uri = new Uri("pack://application:,,,/Assets/FolderManaging.ico", UriKind.Absolute);
             var streamInfo = System.Windows.Application.GetResourceStream(uri);
             if (streamInfo is not null)
             {
-                using var bmp = new Bitmap(streamInfo.Stream);
-                return Icon.FromHandle(bmp.GetHicon());
+                // Clone so the stream can close and both the Win11 tray and the overflow flyout keep the logo.
+                using var icon = new Icon(streamInfo.Stream, 32, 32);
+                return (Icon)icon.Clone();
+            }
+        }
+        catch
+        {
+            // fall through
+        }
+
+        try
+        {
+            var exe = Environment.ProcessPath;
+            if (!string.IsNullOrEmpty(exe))
+            {
+                var associated = Icon.ExtractAssociatedIcon(exe);
+                if (associated is not null)
+                    return associated;
             }
         }
         catch

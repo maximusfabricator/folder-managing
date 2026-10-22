@@ -3,6 +3,7 @@ using System.Runtime.InteropServices;
 using System.Text;
 using FolderManaging.Core.Diagnostics;
 using FolderManaging.Core.Interop;
+using FolderManaging.Core.Models;
 using FolderManaging.Core.ShellProperties;
 using FolderManaging.Core.Storage;
 
@@ -103,6 +104,38 @@ public static class FolderIconManager
         }
     }
 
+    /// <summary>Menu icon for a tag: stock folder + colored badge (cached as <c>tag-{id}-{hex}.ico</c>).</summary>
+    public static string? TryGetTagIconMenuReference(string tagId, string? hexRgb)
+    {
+        try
+        {
+            if (string.IsNullOrWhiteSpace(tagId))
+                return null;
+            var hex = MenuColorHex.TryParse(hexRgb, out var color)
+                ? MenuColorHex.ToHexRgb(color)
+                : MenuTagPresetDefaults.HexRgb;
+            if (!MenuColorHex.TryParse(hex, out color))
+                color = MenuTagPresetDefaults.Color;
+
+            var safeId = new string(tagId.Where(ch => char.IsLetterOrDigit(ch) || ch is '-' or '_').ToArray());
+            if (safeId.Length == 0)
+                safeId = "tag";
+            var path = Path.GetFullPath(Path.Combine(
+                AppPaths.GeneratedIconsDirectory,
+                $"tag-{safeId}-{hex.ToLowerInvariant()}.ico"));
+            if (!FolderTintedPresetIconWriter.ShouldReuseCachedIco(path, styleMarkerMatches: true))
+                FolderTintedPresetIconWriter.WriteCompositeIcon(path, folderTint: null, tagBadge: color);
+            if (!File.Exists(path) || new FileInfo(path).Length < FolderTintedPresetIconWriter.MinCachedIcoBytes)
+                return null;
+            return FormatShellMenuIconReference(path);
+        }
+        catch (Exception ex)
+        {
+            ClickTrace.Step($"tag menu-icon failed id={tagId}: {ex.Message}");
+            return null;
+        }
+    }
+
     static long SafeFileLen(string path)
     {
         try { return new FileInfo(path).Length; }
@@ -159,17 +192,16 @@ public static class FolderIconManager
             throw new UnauthorizedAccessException($"Cannot write to folder '{fullFolder}'. Try moving it out of protected locations or run elevated.", ex);
         }
 
-        TraceLog.Append("shell-menu.log", $"[CORE] [STEP 3] WritePresetIcon id='{colorId}'");
-        var sourceIconPath = Path.GetFullPath(WritePresetIcon(colorId, resolvedTint));
-        TraceLog.Append("shell-menu.log", $"[CORE] [STEP 4] sourceIconPath='{sourceIconPath}' exists={File.Exists(sourceIconPath)}");
-        ClickTrace.Step($"preset ico='{sourceIconPath}' exists={File.Exists(sourceIconPath)}");
-        if (!File.Exists(sourceIconPath))
-            throw new FileNotFoundException("Preset icon missing after ensure.", sourceIconPath);
-
-        // Versioned per-folder copy: Explorer caches by file path, so each Apply must use a fresh path.
-        // Tag includes HEX so a color edit of the same id also busts the path.
-        var iconFullPath = PerFolderIconCache.WriteVersionedCopy(
-            fullFolder, sourceIconPath, PerFolderIconCache.TagForPresetId(colorId, hex));
+        var doc = JsonFolderStateStore.LoadSynchronously();
+        var tagBadge = TryResolveTagBadgeColor(doc, fullFolder);
+        var cacheTag = PerFolderIconCache.TagForPresetId(colorId, hex)
+                       + (tagBadge is { } b ? "-t" + MenuColorHex.ToHexRgb(b).ToLowerInvariant() : "");
+        TraceLog.Append("shell-menu.log", $"[CORE] [STEP 3] WriteCompositeIcon colorId='{colorId}' badge={(tagBadge is { } tb ? MenuColorHex.ToHexRgb(tb) : "none")}");
+        var iconFullPath = WriteVersionedCompositeIcon(fullFolder, resolvedTint, tagBadge, cacheTag);
+        TraceLog.Append("shell-menu.log", $"[CORE] [STEP 4] iconFullPath='{iconFullPath}' exists={File.Exists(iconFullPath)}");
+        ClickTrace.Step($"composite ico='{iconFullPath}' exists={File.Exists(iconFullPath)}");
+        if (!File.Exists(iconFullPath))
+            throw new FileNotFoundException("Folder icon missing after generation.", iconFullPath);
 
         var iniPath = Path.Combine(fullFolder, DesktopIniFileName);
         var iconResourceLine = BuildIconResourceLine(iconFullPath);
@@ -222,7 +254,8 @@ public static class FolderIconManager
         }
 
         var hue = FolderColorHueProperty.FromColor(resolvedTint);
-        var iniBody = ComposeManagedIniBody(iniPath, iconResourceLine, hue, colorId);
+        var tags = FolderTagProperty.LabelsFor(doc, fullFolder);
+        var iniBody = ComposeManagedIniBody(iniPath, iconResourceLine, hue, colorId, tags);
         ClickTrace.Step($"ColorHue={hue} sortLabel='{FolderColorHueProperty.ToSortLabel(hue, colorId)}'");
 
         TraceLog.Append("shell-menu.log", $"[CORE] [STEP 8 WRITE] {iniBody.Length} chars UTF-16 LE -> '{iniPath}' hue={hue}");
@@ -328,7 +361,7 @@ public static class FolderIconManager
     /// keeps all its non-icon lines and is embedded as Base64 so reset can put it back byte-for-byte.
     /// Also embeds <see cref="FolderColorHueProperty"/> (Title/Tags labels) for rainbow sort in Explorer.
     /// </summary>
-    static string ComposeManagedIniBody(string iniPath, string iconResourceLine, int colorHueDegrees, string? colorIdOrHex)
+    static string ComposeManagedIniBody(string iniPath, string? iconResourceLine, int? colorHueDegrees, string? colorIdOrHex, IReadOnlyList<string> tagLabels)
     {
         string? original = null;
         if (File.Exists(iniPath))
@@ -383,18 +416,34 @@ public static class FolderIconManager
             }
         }
 
+        var hasIcon = !string.IsNullOrWhiteSpace(iconResourceLine);
+        var hasTags = tagLabels.Count > 0;
+        var tip = hasIcon && hasTags
+            ? FolderTagProperty.CombinedInfoTip
+            : hasIcon
+                ? FolderColorHueProperty.SortHintInfoTip
+                : FolderTagProperty.SortHintInfoTip;
+
         var body = new StringBuilder()
             .Append("[.ShellClassInfo]").Append(nl)
             .Append("ConfirmFileOp=0").Append(nl)
-            .Append("NoSharing=1").Append(nl)
-            .Append("IconResource=").Append(iconResourceLine).Append(nl)
-            // Hover tip explains how to sort by color; Tags/Title hold the sortable label.
-            .Append(FolderColorHueProperty.InfoTipLine()).Append(nl)
+            .Append("NoSharing=1").Append(nl);
+        if (hasIcon)
+            body.Append("IconResource=").Append(iconResourceLine).Append(nl);
+        body.Append("InfoTip=").Append(tip).Append(nl)
             .Append(shellClassInfo)
             .Append("; ").Append(ManagedDesktopIniMarker).Append(nl);
         if (original is not null)
             body.Append(OriginalIniPrefix).Append(Convert.ToBase64String(Encoding.UTF8.GetBytes(original))).Append(nl);
-        FolderColorHueProperty.AppendToDesktopIni(body, colorHueDegrees, colorIdOrHex);
+        if (colorHueDegrees is int hue)
+            FolderColorHueProperty.AppendToDesktopIni(body, hue, colorIdOrHex, tagLabels);
+        else if (hasTags)
+        {
+            body.Append(FolderColorHueProperty.IniSectionHeader).Append(nl)
+                .Append(FolderTagProperty.IniKey).Append('=').Append(FolderTagProperty.Join(tagLabels)).Append(nl);
+            FolderTagProperty.AppendPropertyBag(body, tagLabels);
+        }
+
         body.Append(otherSections);
         return body.ToString();
     }
@@ -412,6 +461,174 @@ public static class FolderIconManager
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or FormatException)
         {
             ClickTrace.Step($"original desktop.ini unreadable: {ex.Message}");
+        }
+
+        return null;
+    }
+
+    /// <summary>
+    /// Writes the folder's current tags into <c>desktop.ini</c> and regenerates the .ico
+    /// (stock or tinted folder + optional tag badge). With no tags and no color, removes our ini.
+    /// </summary>
+    public static void SyncFolderTags(string folderPath)
+    {
+        if (string.IsNullOrWhiteSpace(folderPath))
+            return;
+
+        var fullFolder = Path.GetFullPath(folderPath);
+        if (!Directory.Exists(fullFolder))
+            return;
+
+        var doc = JsonFolderStateStore.LoadSynchronously();
+        var labels = FolderTagProperty.LabelsFor(doc, fullFolder);
+        var entry = FindFolderEntry(doc, fullFolder);
+        var colorToken = entry?.ColorToken;
+        var folderTint = TryResolveFolderTint(colorToken);
+        var tagBadge = labels.Count > 0 ? TryResolveTagBadgeColor(doc, fullFolder) : null;
+        var iniPathExisting = Path.Combine(fullFolder, DesktopIniFileName);
+        var managed = File.Exists(iniPathExisting) && IsManagedDesktopIni(iniPathExisting);
+
+        if (labels.Count == 0 && folderTint is null)
+        {
+            if (managed)
+                RemoveCustomization(fullFolder);
+            return;
+        }
+
+        var probe = Path.Combine(fullFolder, DesktopIniFileName + ".probe");
+        try
+        {
+            File.WriteAllText(probe, "probe");
+            File.Delete(probe);
+        }
+        catch (Exception ex) when (ex is UnauthorizedAccessException or IOException)
+        {
+            throw new UnauthorizedAccessException($"Cannot write to folder '{fullFolder}'.", ex);
+        }
+
+        var cacheTag = (folderTint is { } t
+                           ? PerFolderIconCache.TagForRgb(t)
+                           : "stock")
+                       + (tagBadge is { } b ? "-t" + MenuColorHex.ToHexRgb(b).ToLowerInvariant() : "")
+                       + (labels.Count > 0 ? "-tags" : "");
+        var iconFullPath = WriteVersionedCompositeIcon(fullFolder, folderTint, tagBadge, cacheTag);
+        var iconResourceLine = BuildIconResourceLine(iconFullPath);
+        int? hue = folderTint is { } tint ? FolderColorHueProperty.FromColor(tint) : null;
+        var iniPath = Path.Combine(fullFolder, DesktopIniFileName);
+        var body = ComposeManagedIniBody(iniPath, iconResourceLine, hue, colorToken, labels);
+        ClearFolderReadOnly(fullFolder);
+        WriteManagedDesktopIni(iniPath, body);
+        SetFolderReadOnly(fullFolder);
+        CommitIconViaShellApi(fullFolder, iniPath, body, iconFullPath);
+        NotifyShellAfterDesktopIniChange(fullFolder);
+        PerFolderIconCache.DeleteOldVersions(fullFolder, iconFullPath);
+    }
+
+    static string WriteVersionedCompositeIcon(string fullFolder, Color? folderTint, Color? tagBadge, string cacheTag)
+    {
+        var path = PerFolderIconCache.AllocateVersionedPath(fullFolder, cacheTag);
+        FolderTintedPresetIconWriter.WriteCompositeIcon(path, folderTint, tagBadge);
+        return path;
+    }
+
+    static FolderStateEntry? FindFolderEntry(AppStateDocument doc, string fullFolder)
+    {
+        var full = Path.TrimEndingDirectorySeparator(fullFolder);
+        foreach (var folder in doc.Folders)
+        {
+            try
+            {
+                var candidate = Path.TrimEndingDirectorySeparator(Path.GetFullPath(folder.Path));
+                if (string.Equals(candidate, full, StringComparison.OrdinalIgnoreCase))
+                    return folder;
+            }
+            catch
+            {
+                // skip broken path
+            }
+        }
+
+        return null;
+    }
+
+    /// <summary>First folder tag's badge color, or default blue when the hex is missing.</summary>
+    static Color? TryResolveTagBadgeColor(AppStateDocument doc, string fullFolder)
+    {
+        var entry = FindFolderEntry(doc, fullFolder);
+        if (entry is null || entry.Tags.Count == 0)
+            return null;
+
+        foreach (var id in entry.Tags)
+        {
+            if (string.IsNullOrWhiteSpace(id))
+                continue;
+            var preset = doc.MenuTags.FirstOrDefault(t =>
+                string.Equals(t.Id, id, StringComparison.OrdinalIgnoreCase));
+            var hex = string.IsNullOrWhiteSpace(preset?.HexRgb) ? MenuTagPresetDefaults.HexRgb : preset!.HexRgb;
+            if (MenuColorHex.TryParse(hex, out var color))
+                return color;
+        }
+
+        return MenuTagPresetDefaults.Color;
+    }
+
+    static Color? TryResolveFolderTint(string? colorToken)
+    {
+        if (string.IsNullOrWhiteSpace(colorToken))
+            return null;
+        if (colorToken.StartsWith("rgb-", StringComparison.OrdinalIgnoreCase) &&
+            MenuColorHex.TryParse(colorToken["rgb-".Length..], out var rgb))
+            return rgb;
+        if (MenuStateReader.TryGetMenuTint(colorToken, out var tint))
+            return tint;
+        return null;
+    }
+
+    /// <summary>Rewrites <c>desktop.ini</c> for folders whose saved tags do not match the file.</summary>
+    public static void RefreshAllFolderTags()
+    {
+        AppStateDocument doc;
+        try
+        {
+            doc = JsonFolderStateStore.LoadSynchronously();
+        }
+        catch (Exception ex)
+        {
+            TraceLog.Append("shell-menu.log", $"[CORE] RefreshAllFolderTags load failed: {ex.Message}");
+            return;
+        }
+
+        // Color-only folders also refresh so a removed tag drops the badge from the .ico.
+        foreach (var folder in doc.Folders)
+        {
+            try
+            {
+                SyncFolderTags(folder.Path);
+            }
+            catch (Exception ex)
+            {
+                TraceLog.Append("shell-menu.log", $"[CORE] SyncFolderTags failed '{folder.Path}': {ex.Message}");
+            }
+        }
+    }
+
+    static string? TryReadIniValue(string iniPath, string key)
+    {
+        if (!File.Exists(iniPath))
+            return null;
+        try
+        {
+            var prefix = key + "=";
+            foreach (var raw in File.ReadAllLines(iniPath))
+            {
+                var line = raw.Trim();
+                if (line.StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
+                    return line[prefix.Length..].Trim();
+            }
+        }
+        catch
+        {
+            return null;
         }
 
         return null;
@@ -572,12 +789,13 @@ public static class FolderIconManager
             throw new UnauthorizedAccessException($"Cannot write to folder '{fullFolder}'.", ex);
         }
 
-        var sourceIconPath = Path.GetFullPath(FolderTintedPresetIconWriter.WriteTintedRgbIcon(tint));
-        if (!File.Exists(sourceIconPath))
-            throw new FileNotFoundException("Tinted icon missing after generation.", sourceIconPath);
-
-        var iconFullPath = PerFolderIconCache.WriteVersionedCopy(
-            fullFolder, sourceIconPath, PerFolderIconCache.TagForRgb(tint));
+        var doc = JsonFolderStateStore.LoadSynchronously();
+        var tagBadge = TryResolveTagBadgeColor(doc, fullFolder);
+        var cacheTag = PerFolderIconCache.TagForRgb(tint)
+                       + (tagBadge is { } b ? "-t" + MenuColorHex.ToHexRgb(b).ToLowerInvariant() : "");
+        var iconFullPath = WriteVersionedCompositeIcon(fullFolder, tint, tagBadge, cacheTag);
+        if (!File.Exists(iconFullPath))
+            throw new FileNotFoundException("Tinted icon missing after generation.", iconFullPath);
 
         ClearFolderReadOnly(fullFolder);
         var iniPath = Path.Combine(fullFolder, DesktopIniFileName);
@@ -585,7 +803,8 @@ public static class FolderIconManager
         var iconResourceLine = BuildIconResourceLine(iconFullPath);
         var hue = FolderColorHueProperty.FromColor(tint);
         var rgbLabel = $"{tint.R:X2}{tint.G:X2}{tint.B:X2}";
-        var iniBody = ComposeManagedIniBody(iniPath, iconResourceLine, hue, rgbLabel);
+        var tags = FolderTagProperty.LabelsFor(doc, fullFolder);
+        var iniBody = ComposeManagedIniBody(iniPath, iconResourceLine, hue, rgbLabel, tags);
         ClickTrace.Step($"ApplyRgb ColorHue={hue} sortLabel='{FolderColorHueProperty.ToSortLabel(hue, rgbLabel)}'");
 
         WriteManagedDesktopIni(iniPath, iniBody);
@@ -628,7 +847,9 @@ public static class FolderIconManager
                                !current.Contains(OriginalIniPrefix, StringComparison.Ordinal);
             var lostHue = iniBody.Contains(FolderColorHueProperty.IniSectionHeader, StringComparison.OrdinalIgnoreCase) &&
                           !current.Contains(FolderColorHueProperty.IniSectionHeader, StringComparison.OrdinalIgnoreCase);
-            if (lostOriginal || lostHue || !IsManagedDesktopIni(iniPath) ||
+            var lostTags = iniBody.Contains(FolderTagProperty.IniKey + "=", StringComparison.OrdinalIgnoreCase) &&
+                           !current.Contains(FolderTagProperty.IniKey + "=", StringComparison.OrdinalIgnoreCase);
+            if (lostOriginal || lostHue || lostTags || !IsManagedDesktopIni(iniPath) ||
                 !current.Contains(Path.GetFileName(iconFullPath), StringComparison.OrdinalIgnoreCase))
             {
                 ClickTrace.Step("desktop.ini changed by shell API (marker/icon/hue missing) -> rewriting our body");
@@ -798,7 +1019,11 @@ public static class FolderIconManager
         if (changed > 0)
         {
             ClickTrace.Step($"sort-tail cleanup parent='{parent}' removed={changed}");
-            SendShellChangeNotify(Win32Shell.SHCNE_UPDATEDIR, parent);
+            ThreadPool.QueueUserWorkItem(_ =>
+            {
+                lock (ShellNotifyGate)
+                    FlushShellChange(Win32Shell.SHCNE_UPDATEDIR, parent);
+            });
         }
     }
 
@@ -837,57 +1062,57 @@ public static class FolderIconManager
         }
     }
 
+    static readonly object ShellNotifyGate = new();
+
     /// <summary>
-    /// Win11-friendly refresh after the caller has already finished mutating <c>desktop.ini</c> and folder attributes.
-    /// Bumps mtime, then sends <c>SHCNE_UPDATEITEM</c> + <c>SHCNE_UPDATEDIR</c> on the folder, and finally fires
-    /// <c>SHCNE_ATTRIBUTES</c> so Explorer reconsiders the folder customization.
+    /// Asks Explorer to re-read this folder now. Runs off the caller thread: <c>SHCNF_FLUSH</c> waits until
+    /// Explorer has applied the change, which used to freeze the color window. A full icon-cache rebuild
+    /// (<c>SHCNE_ASSOCCHANGED</c>) is not sent — that is what made the view sit for a long time before updating.
     /// </summary>
     static void NotifyShellAfterDesktopIniChange(string folderPath)
     {
-        try
-        {
-            Directory.SetLastWriteTime(folderPath, DateTime.Now);
-        }
-        catch
-        {
-            // ignore
-        }
-
-        ClickTrace.Step($"SHChangeNotify begin folder='{folderPath}'");
-        SendShellChangeNotify(Win32Shell.SHCNE_UPDATEITEM, folderPath);
-        SendShellChangeNotify(Win32Shell.SHCNE_UPDATEDIR, folderPath);
-        SendShellChangeNotify(Win32Shell.SHCNE_ATTRIBUTES, folderPath);
-
+        var path = folderPath;
         var parent = TryGetParentDirectory(folderPath);
-        if (parent is not null)
+        ThreadPool.QueueUserWorkItem(_ =>
         {
-            SendShellChangeNotify(Win32Shell.SHCNE_UPDATEITEM, parent);
-            SendShellChangeNotify(Win32Shell.SHCNE_UPDATEDIR, parent);
-        }
+            lock (ShellNotifyGate)
+            {
+                try
+                {
+                    Directory.SetLastWriteTime(path, DateTime.Now);
+                }
+                catch
+                {
+                    // ignore
+                }
 
-        // Global association/icon cache nudge — helps when Explorer keeps the previous glyph until restart.
-        try
-        {
-            Win32Shell.SHChangeNotify(Win32Shell.SHCNE_ASSOCCHANGED, Win32Shell.SHCNF_IDLIST, 0, 0);
-            ClickTrace.Step("SHChangeNotify SHCNE_ASSOCCHANGED sent");
-        }
-        catch (Exception ex)
-        {
-            ClickTrace.Step($"SHCNE_ASSOCCHANGED failed: {ex.Message}");
-        }
+                try
+                {
+                    Win32Shell.SHFlushSFCache();
+                }
+                catch
+                {
+                    // older shells may not export it; the flushed notifies below still run
+                }
+
+                FlushShellChange(Win32Shell.SHCNE_UPDATEITEM, path);
+                FlushShellChange(Win32Shell.SHCNE_ATTRIBUTES, path);
+                if (parent is not null)
+                    FlushShellChange(Win32Shell.SHCNE_UPDATEDIR, parent);
+            }
+        });
     }
 
-    static void SendShellChangeNotify(uint eventId, string path)
+    static void FlushShellChange(uint eventId, string path)
     {
         var p = Marshal.StringToHGlobalUni(path);
         try
         {
-            // FLUSHNOWAIT: SHCNF_FLUSH blocks until Explorer processes the event and can hang the caller indefinitely.
-            Win32Shell.SHChangeNotify(
-                eventId,
-                Win32Shell.SHCNF_PATHW | Win32Shell.SHCNF_FLUSHNOWAIT,
-                p,
-                nint.Zero);
+            Win32Shell.SHChangeNotify(eventId, Win32Shell.SHCNF_PATHW | Win32Shell.SHCNF_FLUSH, p, nint.Zero);
+        }
+        catch
+        {
+            // a notify must not fail the color or tag write
         }
         finally
         {

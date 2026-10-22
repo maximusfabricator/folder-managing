@@ -5,6 +5,7 @@
                  xmlns:loc="clr-namespace:FolderManaging.Companion.Localization"
                  xmlns:controls="clr-namespace:FolderManaging.Companion.Controls"
                  Title="{loc:Loc QuickTitle}"
+                 Icon="pack://application:,,,/Assets/FolderManaging.ico"
                  Width="420" Height="560"
                  MinWidth="380" MinHeight="520"
                  WindowStartupLocation="CenterScreen"

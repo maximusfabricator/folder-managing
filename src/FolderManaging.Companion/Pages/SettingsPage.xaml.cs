@@ -1,3 +1,5 @@
+using System.Diagnostics;
+using System.IO;
 using System.Windows;
 using System.Windows.Controls;
 using FolderManaging.Core;
@@ -232,6 +234,27 @@ public partial class SettingsPage : System.Windows.Controls.UserControl
             UiText.Get("ResetSettings"),
             MessageBoxButton.OK,
             MessageBoxImage.Information);
+    }
+
+    void OnUninstallClick(object sender, RoutedEventArgs e)
+    {
+        var exe = Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+            "Programs",
+            "FolderManaging",
+            "FolderManaging.Setup.exe");
+        if (!File.Exists(exe))
+        {
+            System.Windows.MessageBox.Show(
+                Window.GetWindow(this),
+                UiText.Get("UninstallMissing"),
+                "Folder Managing",
+                MessageBoxButton.OK,
+                MessageBoxImage.Information);
+            return;
+        }
+
+        Process.Start(new ProcessStartInfo(exe, "--uninstall") { UseShellExecute = true });
     }
 
     void RefreshWorkerStatus()

@@ -10,6 +10,7 @@
 
   <ItemGroup>
     <Resource Include="..\..\logo.png" Link="Assets\logo.png" />
+    <Resource Include="..\..\assets\FolderManaging.ico" Link="Assets\FolderManaging.ico" />
   </ItemGroup>
 
   <PropertyGroup>

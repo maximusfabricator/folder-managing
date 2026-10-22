@@ -1,7 +1,6 @@
 using System.Drawing;
 using System.Globalization;
 using System.Text;
-using FolderManaging.Core.Localization;
 
 namespace FolderManaging.Core.ShellProperties;
 
@@ -35,7 +34,9 @@ public static class FolderColorHueProperty
     public const ushort VarTypeLpstr = 31;
     public const ushort VarTypeVectorLpstr = 4127;
 
-    public static string SortHintInfoTip => UiText.Get("SortInfoTip");
+    /// <summary>Always English: Explorer shows InfoTip as stored, with no language switch later.</summary>
+    public const string SortHintInfoTip =
+        "Folder Managing color. Sort: Sort → \"Folder color\" (or Tags), ascending";
 
     public static int FromColor(Color color)
     {
@@ -64,7 +65,7 @@ public static class FolderColorHueProperty
 
     public static string InfoTipLine() => "InfoTip=" + SortHintInfoTip;
 
-    public static void AppendToDesktopIni(StringBuilder body, int colorHueDegrees, string? colorIdOrHex)
+    public static void AppendToDesktopIni(StringBuilder body, int colorHueDegrees, string? colorIdOrHex, IReadOnlyList<string>? tagLabels = null)
     {
         var hue = Math.Clamp(colorHueDegrees, 0, 360);
         var label = ToSortLabel(hue, colorIdOrHex);
@@ -72,9 +73,12 @@ public static class FolderColorHueProperty
         var nl = Environment.NewLine;
         var summary = SummaryFormatId.ToString("B").ToUpperInvariant();
         var colorFmt = FormatId.ToString("B").ToUpperInvariant();
+        var tags = tagLabels ?? [];
 
         body.Append(IniSectionHeader).Append(nl)
             .Append(IniHueKey).Append('=').Append(hueText).Append(nl);
+        if (tags.Count > 0)
+            body.Append(FolderTagProperty.IniKey).Append('=').Append(FolderTagProperty.Join(tags)).Append(nl);
 
         // Native property-bag form for FolderManaging.ColorHue (UInt32) — used by Sort → «Цвет папки».
         body.Append('[').Append(colorFmt).Append(']').Append(nl)
@@ -98,6 +102,8 @@ public static class FolderColorHueProperty
             .Append("Prop").Append(RatingPropId.ToString(CultureInfo.InvariantCulture))
             .Append('=').Append(VarTypeUInt32.ToString(CultureInfo.InvariantCulture))
             .Append(',').Append(hueText).Append(nl);
+
+        FolderTagProperty.AppendPropertyBag(body, tags);
     }
 
     public static bool IsOwnedSectionHeader(string trimmedSectionLine)
@@ -109,6 +115,8 @@ public static class FolderColorHueProperty
         if (trimmedSectionLine.Equals("[" + SummaryFormatId.ToString("B") + "]", StringComparison.OrdinalIgnoreCase))
             return true;
         if (trimmedSectionLine.Equals("[" + RatingFormatId.ToString("B") + "]", StringComparison.OrdinalIgnoreCase))
+            return true;
+        if (FolderTagProperty.IsOwnedSectionHeader(trimmedSectionLine))
             return true;
         return false;
     }

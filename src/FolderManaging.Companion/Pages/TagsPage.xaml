@@ -4,7 +4,11 @@
              xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
              xmlns:loc="clr-namespace:FolderManaging.Companion.Localization"
              xmlns:models="clr-namespace:FolderManaging.Core.Models;assembly=FolderManaging.Core"
+             xmlns:conv="clr-namespace:FolderManaging.Companion.Converters"
              Loaded="OnLoaded">
+    <UserControl.Resources>
+        <conv:HexRgbToBrushConverter x:Key="HexBrush" />
+    </UserControl.Resources>
     <Grid Margin="36,24,36,24">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
@@ -50,8 +54,15 @@
                                         <ColumnDefinition Width="Auto" />
                                         <ColumnDefinition Width="Auto" />
                                     </Grid.ColumnDefinitions>
-                                    <ui:SymbolIcon Grid.Column="0" VerticalAlignment="Center"
-                                                   FontSize="20" Symbol="Tag24" />
+                                    <Border Grid.Column="0" Width="28" Height="28" CornerRadius="6"
+                                            VerticalAlignment="Center"
+                                            BorderBrush="{DynamicResource ControlStrongStrokeColorDefaultBrush}"
+                                            BorderThickness="1"
+                                            IsHitTestVisible="False">
+                                        <Border.Background>
+                                            <Binding Path="HexRgb" Converter="{StaticResource HexBrush}" Mode="OneWay" />
+                                        </Border.Background>
+                                    </Border>
                                     <TextBlock Style="{StaticResource FmText}" Grid.Column="1" Margin="14,0,0,0" VerticalAlignment="Center"
                                                FontSize="14"
                                                TextTrimming="CharacterEllipsis"
@@ -63,7 +74,14 @@
                                 <ui:TextBox Width="190" VerticalAlignment="Center"
                                             PlaceholderText="{loc:Loc MenuName}"
                                             Text="{Binding Label, UpdateSourceTrigger=PropertyChanged}"
-                                            TextChanged="OnTagLabelChanged" />
+                                            TextChanged="OnTagLabelChanged"
+                                            LostFocus="OnTagLabelLostFocus" />
+                                <ui:Button Margin="8,0,0,0" VerticalAlignment="Center"
+                                           Icon="{ui:SymbolIcon Symbol=Color24}"
+                                           Content="{loc:Loc Edit}"
+                                           Appearance="Secondary"
+                                           Click="OnEditTagColorClick"
+                                           Tag="{Binding}" />
                                 <ui:Button Margin="8,0,0,0" VerticalAlignment="Center"
                                            Icon="{ui:SymbolIcon Symbol=Delete24}"
                                            Appearance="Caution"

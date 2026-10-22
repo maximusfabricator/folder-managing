@@ -88,6 +88,8 @@ public partial class MainWindow : FluentWindow
         try
         {
             FolderIconManager.RemoveCustomization(dlg.SelectedPath);
+            ClearColorTokenKeepTags(dlg.SelectedPath);
+            FolderIconManager.SyncFolderTags(dlg.SelectedPath);
             ClickTrace.Ok($"reset path='{dlg.SelectedPath}'");
             scope.MarkFinished();
             System.Windows.MessageBox.Show(
@@ -113,6 +115,8 @@ public partial class MainWindow : FluentWindow
                 return;
             }
 
+            ClearColorTokenKeepTags(dlg.SelectedPath);
+            FolderIconManager.SyncFolderTags(dlg.SelectedPath);
             ClickTrace.Ok($"reset via elevated CLI path='{dlg.SelectedPath}'");
             scope.MarkFinished();
             System.Windows.MessageBox.Show(
@@ -155,5 +159,20 @@ public partial class MainWindow : FluentWindow
         }
 
         return ElevatedCliInvoker.TryInvoke("reset", path, value: null, out _);
+    }
+
+    static void ClearColorTokenKeepTags(string folderPath)
+    {
+        var doc = CompanionState.Document;
+        var full = Path.TrimEndingDirectorySeparator(Path.GetFullPath(folderPath));
+        var entry = doc.Folders.FirstOrDefault(f =>
+            string.Equals(
+                Path.TrimEndingDirectorySeparator(Path.GetFullPath(f.Path)),
+                full,
+                StringComparison.OrdinalIgnoreCase));
+        if (entry is null)
+            return;
+        entry.ColorToken = null;
+        CompanionState.Save();
     }
 }

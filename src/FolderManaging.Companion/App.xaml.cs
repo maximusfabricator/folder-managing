@@ -23,6 +23,17 @@ public partial class App : System.Windows.Application
         base.OnStartup(e);
         AppBootstrapper.Initialize();
         AppThemeService.ApplyFromDocument();
+        Task.Run(static () =>
+        {
+            try
+            {
+                FolderIconManager.RefreshAllFolderTags();
+            }
+            catch (Exception ex)
+            {
+                TraceLog.Append("shell-menu.log", $"[BOOT] RefreshAllFolderTags failed: {ex.Message}");
+            }
+        });
 
         if (TryRunSpecialMode(e.Args))
         {

@@ -130,6 +130,7 @@ public partial class QuickColorWindow : FluentWindow
 
             ClickTrace.Ok($"rgb=#{hex} path='{path}'");
             scope.MarkFinished();
+            ColorSortTip.TryShowOnce();
             Close();
         }
         catch (Exception ex)

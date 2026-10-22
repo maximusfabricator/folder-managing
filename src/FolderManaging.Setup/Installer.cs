@@ -118,6 +118,7 @@ internal static class Installer
         key.SetValue("DisplayIcon", Path.Combine(ProductInfo.InstallDirectory, ProductInfo.IconFileName));
         key.SetValue("InstallLocation", ProductInfo.InstallDirectory);
         key.SetValue("UninstallString", $"\"{exe}\" --uninstall");
+        key.SetValue("QuietUninstallString", $"\"{exe}\" --uninstall --quiet");
         key.SetValue("InstallDate", DateTime.Now.ToString("yyyyMMdd"));
         key.SetValue("NoModify", 1, RegistryValueKind.DWord);
         key.SetValue("NoRepair", 1, RegistryValueKind.DWord);
@@ -130,6 +131,12 @@ internal static class Installer
         var icon = Path.Combine(ProductInfo.InstallDirectory, ProductInfo.IconFileName);
         var description = UiText.Get("ShortcutDescription");
         SystemTools.CreateShortcut(ProductInfo.StartMenuShortcutPath, ProductInfo.CompanionAliasPath, "", icon, description);
+        SystemTools.CreateShortcut(
+            ProductInfo.StartMenuUninstallShortcutPath,
+            ProductInfo.MaintenanceExePath,
+            "--uninstall",
+            icon,
+            UiText.Get("UninstallBlurb"));
         if (options.DesktopShortcut)
             SystemTools.CreateShortcut(ProductInfo.DesktopShortcutPath, ProductInfo.CompanionAliasPath, "", icon, description);
         else

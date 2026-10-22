@@ -1,4 +1,5 @@
 using System.Collections.ObjectModel;
+using System.IO;
 using System.Windows;
 using System.Windows.Controls;
 using FolderManaging.Core;
@@ -100,6 +101,9 @@ public partial class ManageFoldersPage : System.Windows.Controls.UserControl
             CompanionState.ReloadFromDiskIfStale();
 
         var doc = CompanionState.Document;
+        if (RemoveMissingFolders(doc))
+            CompanionState.Save();
+
         var list = doc.Folders
             .Where(f =>
                 f.IsPinned ||
@@ -113,6 +117,35 @@ public partial class ManageFoldersPage : System.Windows.Controls.UserControl
         FoldersGrid.ItemsSource = _rows;
         EmptyHint.Visibility = list.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
         FoldersGrid.Visibility = list.Count == 0 ? Visibility.Collapsed : Visibility.Visible;
+    }
+
+    /// <summary>
+    /// Drops rows whose folder is gone. A missing drive (unplugged disk) is kept.
+    /// Paths from another PC disappear here because those folders do not exist.
+    /// </summary>
+    static bool RemoveMissingFolders(AppStateDocument doc)
+    {
+        var removed = doc.Folders.RemoveAll(entry => IsDeletedFolder(entry.Path));
+        return removed > 0;
+    }
+
+    static bool IsDeletedFolder(string path)
+    {
+        if (string.IsNullOrWhiteSpace(path))
+            return true;
+
+        try
+        {
+            var full = Path.GetFullPath(path);
+            var root = Path.GetPathRoot(full);
+            if (string.IsNullOrEmpty(root) || !Directory.Exists(root))
+                return false;
+            return !Directory.Exists(full);
+        }
+        catch
+        {
+            return false;
+        }
     }
 
     static void PruneIfEmpty(AppStateDocument doc, FolderStateEntry entry)
@@ -163,7 +196,7 @@ public partial class ManageFoldersPage : System.Windows.Controls.UserControl
         row.Entry.Tags.Clear();
         PruneIfEmpty(doc, row.Entry);
         CompanionState.Save();
-        FolderIconManager.RequestExplorerRefreshForFolder(row.Entry.Path);
+        FolderIconManager.SyncFolderTags(row.Entry.Path);
         ClickTrace.Ok();
         scope.MarkFinished();
         Reload(forceDisk: false);
@@ -182,7 +215,10 @@ public partial class ManageFoldersPage : System.Windows.Controls.UserControl
         row.Entry.ColorToken = null;
         PruneIfEmpty(doc, row.Entry);
         CompanionState.Save();
-        FolderIconManager.RequestExplorerRefreshForFolder(row.Entry.Path);
+        if (row.Entry.Tags.Count > 0)
+            FolderIconManager.SyncFolderTags(row.Entry.Path);
+        else
+            FolderIconManager.RequestExplorerRefreshForFolder(row.Entry.Path);
         ClickTrace.Ok();
         scope.MarkFinished();
         Reload(forceDisk: false);

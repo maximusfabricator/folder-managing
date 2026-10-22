@@ -17,7 +17,7 @@ public static class FolderTintedPresetIconWriter
 {
     const string StyleMarkerFileName = ".folder-managing-icon-style";
     /// <summary>v4: stronger tint + hex in filename for reactive menu icons.</summary>
-    internal const string CurrentIconStyle = "siid-folder-grayscale-pngico-v4-hexname";
+    internal const string CurrentIconStyle = "siid-folder-grayscale-pngico-v5-tagbadge";
 
     /// <summary>Minimum plausible size for our multi-frame PNG ICO (avoids treating corrupt/tiny files as cache hits).</summary>
     internal const int MinCachedIcoBytes = 4000;
@@ -214,6 +214,51 @@ public static class FolderTintedPresetIconWriter
         WriteTintedIco(path, stock, tint);
         WriteStyleMarker(dir);
         return path;
+    }
+
+    /// <summary>
+    /// Writes a multi-size folder ICO: optional RGB tint, optional tag badge in the corner.
+    /// Used for per-folder versioned icons (color and/or tags).
+    /// </summary>
+    public static void WriteCompositeIcon(string outputPath, Color? folderTint, Color? tagBadge)
+    {
+        if (string.IsNullOrWhiteSpace(outputPath))
+            throw new ArgumentException("Output path is required.", nameof(outputPath));
+
+        Directory.CreateDirectory(Path.GetDirectoryName(outputPath) ?? ".");
+        using var stock = CaptureFolderStockBitmapMaster(256);
+        using var base256 = folderTint is { } tint
+            ? FolderIconTint.ApplyRgbTint(stock, tint)
+            : (Bitmap)stock.Clone();
+
+        // Draw the badge per size so 16/32px stay crisp (not a blurry downscale of a 256 badge).
+        var owned = new List<Bitmap>();
+        try
+        {
+            var frames = new List<(int LogicalSize, Bitmap Bitmap)>();
+            foreach (var s in new[] { 256, 64, 48, 32, 16 })
+            {
+                var frame = s == 256
+                    ? (Bitmap)base256.Clone()
+                    : FolderIconTint.ResizeSquare(base256, s);
+                owned.Add(frame);
+                if (tagBadge is { } badge)
+                    FolderIconTint.DrawTagBadge(frame, badge);
+                frames.Add((s, frame));
+            }
+
+            PngIcoEncoder.Save(outputPath, frames);
+        }
+        finally
+        {
+            foreach (var b in owned)
+                b.Dispose();
+        }
+
+        WriteStyleMarker(ResolveOutputDirectory(null));
+        ClickTrace.Step(
+            $"WriteCompositeIcon tint={(folderTint is { } t ? MenuColorHex.ToHexRgb(t) : "stock")} " +
+            $"badge={(tagBadge is { } b2 ? MenuColorHex.ToHexRgb(b2) : "none")} path='{outputPath}'");
     }
 
     internal static bool ShouldReuseCachedIco(string icoPath, bool styleMarkerMatches)

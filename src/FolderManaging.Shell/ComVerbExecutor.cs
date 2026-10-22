@@ -33,6 +33,8 @@ internal static class ComVerbExecutor
         var editor = new FolderStateEditor(new JsonFolderStateStore());
         editor.SetColorTokenAsync(folderPath, null, CancellationToken.None).GetAwaiter().GetResult();
         ClickTrace.Step("state.json colorToken cleared");
+        // Keep the tag badge if the folder still has tags (stock yellow + badge).
+        FolderIconManager.SyncFolderTags(folderPath);
     }
 
     internal static void Pin(string folderPath)
@@ -59,6 +61,7 @@ internal static class ComVerbExecutor
         TraceLog.Append("shell-menu.log", $"[COM] [PROCESS] in-proc UpsertTag tag={tagId}");
         var editor = new FolderStateEditor(new JsonFolderStateStore());
         editor.UpsertTagAsync(folderPath, tagId, CancellationToken.None).GetAwaiter().GetResult();
+        FolderIconManager.SyncFolderTags(folderPath);
     }
 
     internal static void OpenSettings()
