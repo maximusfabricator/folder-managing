@@ -159,11 +159,12 @@ internal static class MenuBuilder
 
     static void AppendTagItems(List<Shell32.IExplorerCommand> list, AppStateDocument doc)
     {
-        foreach (var t in doc.MenuTags)
+        foreach (var t in doc.MenuTags.OrderBy(t => t.Label, StringComparer.CurrentCultureIgnoreCase))
         {
             if (string.IsNullOrWhiteSpace(t.Id))
                 continue;
-            list.Add(new MenuActionExplorerCommand($"tag-{t.Id}", UiText.Format("TagLine", t.Label), "tag", t.Id));
+            var icon = FolderIconManager.TryGetTagIconMenuReference(t.Id, t.HexRgb);
+            list.Add(new MenuActionExplorerCommand($"tag-{t.Id}", UiText.Format("TagLine", t.Label), "tag", t.Id, icon));
         }
     }
 

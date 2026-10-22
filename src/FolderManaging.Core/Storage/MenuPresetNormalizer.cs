@@ -43,8 +43,8 @@ public static class MenuPresetNormalizer
 
         if (doc.MenuTags.Count == 0)
         {
-            foreach (var (id, label) in DefaultTags())
-                doc.MenuTags.Add(new MenuTagPreset { Id = id, Label = label });
+            foreach (var (id, label, hex) in DefaultTags())
+                doc.MenuTags.Add(new MenuTagPreset { Id = id, Label = label, HexRgb = hex });
         }
         else
         {
@@ -54,6 +54,8 @@ public static class MenuPresetNormalizer
                     continue;
                 if (string.IsNullOrWhiteSpace(t.Label))
                     t.Label = t.Id;
+                if (!MenuColorHex.TryParse(t.HexRgb, out _))
+                    t.HexRgb = MenuTagPresetDefaults.HexRgb;
             }
         }
     }
@@ -92,11 +94,11 @@ public static class MenuPresetNormalizer
         }
     }
 
-    static IEnumerable<(string Id, string Label)> DefaultTags()
+    static IEnumerable<(string Id, string Label, string HexRgb)> DefaultTags()
     {
-        yield return ("work", "Work");
-        yield return ("personal", "Personal");
-        yield return ("later", "Later");
-        yield return ("archive", "Archive");
+        yield return ("work", "Work", "0078D4");
+        yield return ("personal", "Personal", "E3008C");
+        yield return ("later", "Later", "FFB900");
+        yield return ("archive", "Archive", "8A8886");
     }
 }

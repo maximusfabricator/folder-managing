@@ -5,6 +5,7 @@
                  xmlns:pages="clr-namespace:FolderManaging.Companion.Pages"
                  xmlns:loc="clr-namespace:FolderManaging.Companion.Localization"
                  Title="Folder Managing"
+                 Icon="pack://application:,,,/Assets/FolderManaging.ico"
                  Height="720" Width="1120"
                  MinWidth="900" MinHeight="540"
                  WindowBackdropType="Mica"

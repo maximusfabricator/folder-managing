@@ -22,6 +22,11 @@ public static class PropertySchemaRegistration
     public static string ProgramDataSchemaPath =>
         Path.Combine(ProgramDataSchemaDirectory, PropdescFileName);
 
+    static string TagMapKeyPath =>
+        @"SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\DesktopIniPropertyMap\PropertySetStorage\" +
+        FolderTagProperty.FormatId.ToString("B").ToUpperInvariant() + @"\" +
+        FolderTagProperty.PropId.ToString(System.Globalization.CultureInfo.InvariantCulture);
+
     static string RatingMapKeyPath =>
         @"SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\DesktopIniPropertyMap\PropertySetStorage\" +
         FolderColorHueProperty.RatingFormatId.ToString("B").ToUpperInvariant() + @"\" +
@@ -42,6 +47,7 @@ public static class PropertySchemaRegistration
     ];
 
     const string ColumnToken = "FolderManaging.ColorHue";
+    const string TagColumnToken = "FolderManaging.Tags";
 
     /// <summary>
     /// Writes Rating←ColorHue DesktopIniPropertyMap. If <paramref name="sourcePropdescPath"/>
@@ -49,10 +55,12 @@ public static class PropertySchemaRegistration
     /// </summary>
     public static void Register(string? sourcePropdescPath = null)
     {
-        WriteDesktopIniMap(ColorHueMapKeyPath);
+        WriteDesktopIniMap(ColorHueMapKeyPath, FolderColorHueProperty.IniHueKey, FolderColorHueProperty.VarTypeUInt32);
         ClickTrace.Step("DesktopIniPropertyMap: FolderManaging.ColorHue ← [FolderManaging] ColorHue");
-        WriteDesktopIniMap(RatingMapKeyPath);
+        WriteDesktopIniMap(RatingMapKeyPath, FolderColorHueProperty.IniHueKey, FolderColorHueProperty.VarTypeUInt32);
         ClickTrace.Step("DesktopIniPropertyMap: System.Rating ← [FolderManaging] ColorHue");
+        WriteDesktopIniMap(TagMapKeyPath, FolderTagProperty.IniKey, FolderColorHueProperty.VarTypeLpstr);
+        ClickTrace.Step("DesktopIniPropertyMap: FolderManaging.Tags ← [FolderManaging] Tags");
 
         var patched = EnsureColumnOnFolderTypes();
         ClickTrace.Step($"ColumnList patched on {patched} folder type(s) (column «Цвет папки»)");
@@ -72,10 +80,12 @@ public static class PropertySchemaRegistration
         // One column title for the whole PC. It is the Windows display language at
         // registration: ru / en / nb, otherwise English. The elevated worker refreshes
         // it when that language changes.
-        var label = System.Security.SecurityElement.Escape(UiText.Get("ColumnName"));
-        xml = xml.Replace("__FM_COLUMN_LABEL__", label, StringComparison.Ordinal);
+        var colorLabel = System.Security.SecurityElement.Escape(UiText.Get("ColumnName"));
+        var tagLabel = System.Security.SecurityElement.Escape(UiText.Get("TagColumnName"));
+        xml = xml.Replace("__FM_COLUMN_LABEL__", colorLabel, StringComparison.Ordinal);
+        xml = xml.Replace("__FM_TAG_COLUMN_LABEL__", tagLabel, StringComparison.Ordinal);
         File.WriteAllText(dest, xml, new UTF8Encoding(encoderShouldEmitUTF8Identifier: true));
-        ClickTrace.Step($"propdesc written -> '{dest}' label='{label}'");
+        ClickTrace.Step($"propdesc written -> '{dest}' color='{colorLabel}' tags='{tagLabel}'");
 
         var hr = PSRegisterPropertySchema(dest);
         ClickTrace.Step($"PSRegisterPropertySchema hr=0x{hr:X8} path='{dest}'");
@@ -93,17 +103,21 @@ public static class PropertySchemaRegistration
         if (source is null)
             return;
 
-        var wanted = System.Security.SecurityElement.Escape(UiText.Get("ColumnName"));
+        var colorLabel = System.Security.SecurityElement.Escape(UiText.Get("ColumnName"));
+        var tagLabel = System.Security.SecurityElement.Escape(UiText.Get("TagColumnName"));
         if (File.Exists(ProgramDataSchemaPath))
         {
             var current = File.ReadAllText(ProgramDataSchemaPath);
-            if (current.Contains("label=\"" + wanted + "\"", StringComparison.Ordinal)
-                && !current.Contains("__FM_COLUMN_LABEL__", StringComparison.Ordinal))
+            if (current.Contains("label=\"" + colorLabel + "\"", StringComparison.Ordinal)
+                && current.Contains("label=\"" + tagLabel + "\"", StringComparison.Ordinal)
+                && current.Contains(FolderTagProperty.CanonicalName, StringComparison.Ordinal)
+                && !current.Contains("__FM_COLUMN_LABEL__", StringComparison.Ordinal)
+                && !current.Contains("__FM_TAG_COLUMN_LABEL__", StringComparison.Ordinal))
                 return;
         }
 
         Register(source);
-        ClickTrace.Step($"column label synced to '{wanted}'");
+        ClickTrace.Step($"column labels synced color='{colorLabel}' tags='{tagLabel}'");
     }
 
     /// <summary>Removes Rating map and unregisters schema (best-effort).</summary>
@@ -120,6 +134,9 @@ public static class PropertySchemaRegistration
             baseKey?.DeleteSubKeyTree(
                 FolderColorHueProperty.FormatId.ToString("B").ToUpperInvariant(),
                 throwOnMissingSubKey: false);
+            baseKey?.DeleteSubKeyTree(
+                FolderTagProperty.FormatId.ToString("B").ToUpperInvariant(),
+                throwOnMissingSubKey: false);
         }
         catch (Exception ex)
         {
@@ -134,14 +151,14 @@ public static class PropertySchemaRegistration
         }
     }
 
-    static void WriteDesktopIniMap(string keyPath)
+    static void WriteDesktopIniMap(string keyPath, string iniKey, ushort varType)
     {
         using var key = Registry.LocalMachine.CreateSubKey(keyPath, writable: true)
             ?? throw new InvalidOperationException("Cannot create DesktopIniPropertyMap key (need Administrator).");
 
         key.SetValue("Section", FolderColorHueProperty.IniSectionName, RegistryValueKind.String);
-        key.SetValue("Key", FolderColorHueProperty.IniHueKey, RegistryValueKind.String);
-        key.SetValue("VarType", (int)FolderColorHueProperty.VarTypeUInt32, RegistryValueKind.DWord);
+        key.SetValue("Key", iniKey, RegistryValueKind.String);
+        key.SetValue("VarType", (int)varType, RegistryValueKind.DWord);
     }
 
     /// <summary>
@@ -163,9 +180,14 @@ public static class PropertySchemaRegistration
             {
                 if (hklm?.GetValue("ColumnList") is not string current || current.Length == 0)
                     continue;
-                list = current.Contains(ColumnToken, StringComparison.OrdinalIgnoreCase)
-                    ? current
-                    : current.TrimEnd(';') + ";0(14)" + ColumnToken;
+                list = current;
+                foreach (var token in new[] { ColumnToken, TagColumnToken })
+                {
+                    if (list.Contains(token, StringComparison.OrdinalIgnoreCase))
+                        continue;
+                    var width = token == TagColumnToken ? "20" : "14";
+                    list = list.TrimEnd(';') + ";0(" + width + ")" + token;
+                }
                 mode = hklm.GetValue("LogicalViewMode");
                 name = hklm.GetValue("Name");
                 order = hklm.GetValue("Order");

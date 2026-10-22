@@ -306,6 +306,7 @@ public static class ElevatedCliInvoker
                     FolderIconManager.RemoveCustomization(path);
                     new FolderStateEditor(new JsonFolderStateStore())
                         .SetColorTokenAsync(path, null, CancellationToken.None).GetAwaiter().GetResult();
+                    FolderIconManager.SyncFolderTags(path);
                     return "OK";
                 }
                 default:

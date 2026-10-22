@@ -26,15 +26,23 @@ internal static class PerFolderIconCache
         if (!File.Exists(sourceCachedIcoPath))
             throw new FileNotFoundException("Source cached icon missing.", sourceCachedIcoPath);
 
+        var dest = AllocateVersionedPath(folderFullPath, colorTag);
+        File.Copy(sourceCachedIcoPath, dest, overwrite: true);
+        File.SetLastWriteTimeUtc(dest, DateTime.UtcNow);
+        return dest;
+    }
+
+    /// <summary>Unique per-folder .ico path under the icon cache (caller writes the file).</summary>
+    internal static string AllocateVersionedPath(string folderFullPath, string colorTag)
+    {
+        if (string.IsNullOrWhiteSpace(folderFullPath))
+            throw new ArgumentException("Folder path is required.", nameof(folderFullPath));
+
         var dir = EnsureFolderIconCacheDir();
         var hash = ComputeFolderHash(folderFullPath);
         var safeTag = SanitizeTag(colorTag);
         var ticks = DateTime.UtcNow.Ticks;
-
-        var dest = Path.Combine(dir, $"{hash}-{safeTag}-{ticks:x16}.ico");
-        File.Copy(sourceCachedIcoPath, dest, overwrite: true);
-        File.SetLastWriteTimeUtc(dest, DateTime.UtcNow);
-        return Path.GetFullPath(dest);
+        return Path.GetFullPath(Path.Combine(dir, $"{hash}-{safeTag}-{ticks:x16}.ico"));
     }
 
     /// <summary>Previous versions kept on disk: Explorer may still resolve the old IconResource for a moment after a change.</summary>

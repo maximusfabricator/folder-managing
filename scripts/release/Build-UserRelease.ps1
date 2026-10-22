@@ -12,10 +12,10 @@ Builds the user edition and the single offline installer: artifacts\release\Fold
 
 .NOTES
 Requires the Windows SDK (makeappx.exe, signtool.exe) and the .NET 8 SDK. Run from any folder:
-  powershell -ExecutionPolicy Bypass -File scripts\release\Build-UserRelease.ps1 -Version 1.0.0
+  powershell -ExecutionPolicy Bypass -File scripts\release\Build-UserRelease.ps1 -Version 1.1.0
 #>
 param(
-    [string] $Version = "1.0.0",
+    [string] $Version = "1.1.0",
     [string] $RepoRoot = (Resolve-Path (Join-Path $PSScriptRoot "..\..")).Path,
     [string] $CertificatePfx = (Join-Path $PSScriptRoot "..\..\artifacts\certs\FolderManaging-Release.pfx"),
     [string] $CertificatePassword = $env:FM_RELEASE_CERT_PASSWORD,

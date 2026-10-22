@@ -55,6 +55,7 @@ internal static class Uninstaller
             progress.Report(UiText.Get("RemovingShortcuts"));
             Installer.SetAutostart(false);
             SystemTools.TryDeleteFile(ProductInfo.StartMenuShortcutPath);
+            SystemTools.TryDeleteFile(ProductInfo.StartMenuUninstallShortcutPath);
             SystemTools.TryDeleteFile(ProductInfo.DesktopShortcutPath);
             Registry.CurrentUser.DeleteSubKeyTree(ProductInfo.UninstallKeyPath, throwOnMissingSubKey: false);
 
@@ -98,6 +99,17 @@ internal static class Uninstaller
                 SetupLog.Write($"reset failed '{entry.Path}': {message}");
                 failed.Add(entry.Path);
             }
+        }
+
+        // Also sweep the user profile so colored folders that are no longer listed in state.json lose desktop.ini.
+        try
+        {
+            var profile = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
+            FolderIconManager.CleanupManagedDesktopInis(profile, maxDepth: 8, recursive: true);
+        }
+        catch (Exception ex)
+        {
+            SetupLog.Write($"profile desktop.ini sweep: {ex.Message}");
         }
 
         return failed;

@@ -89,6 +89,21 @@
                 <ui:CardControl.Header>
                     <StackPanel>
                         <TextBlock Style="{StaticResource FmText}" FontSize="14" FontWeight="SemiBold"
+                                   Text="{loc:Loc UninstallApp}" />
+                        <TextBlock Style="{StaticResource FmTextSecondary}" Margin="0,4,0,0" FontSize="12" Opacity="0.65" TextWrapping="Wrap"
+                                   Text="{loc:Loc UninstallAppHint}" />
+                    </StackPanel>
+                </ui:CardControl.Header>
+                <ui:Button Appearance="Caution"
+                           Icon="{ui:SymbolIcon Symbol=Delete24}"
+                           Content="{loc:Loc UninstallApp}"
+                           Click="OnUninstallClick" />
+            </ui:CardControl>
+
+            <ui:CardControl Margin="0,12,0,0" Padding="16,14">
+                <ui:CardControl.Header>
+                    <StackPanel>
+                        <TextBlock Style="{StaticResource FmText}" FontSize="14" FontWeight="SemiBold"
                                    Text="{loc:Loc ResetSettingsCard}" />
                         <TextBlock Style="{StaticResource FmTextSecondary}" Margin="0,4,0,0" FontSize="12" Opacity="0.65" TextWrapping="Wrap"
                                    Text="{loc:Loc ResetSettingsHint}" />

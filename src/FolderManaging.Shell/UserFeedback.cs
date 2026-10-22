@@ -90,29 +90,7 @@ internal static class UserFeedback
     /// <summary>
     /// Once per machine/user state: explain that Explorer sorts colors via Tags/Title (not a «Color» menu item).
     /// </summary>
-    internal static void MaybeShowColorSortTip()
-    {
-        try
-        {
-            var doc = JsonFolderStateStore.LoadSynchronously();
-            if (doc.ColorSortTipShown)
-                return;
-
-            MessageBoxW(
-                0,
-                UiText.Get("ColorSortTip"),
-                Caption,
-                MB_OK | MB_ICONWARNING | MB_SETFOREGROUND | MB_TOPMOST);
-
-            doc.ColorSortTipShown = true;
-            JsonFolderStateStore.SaveSynchronously(doc);
-            ClickTrace.Step("color-sort tip shown and saved");
-        }
-        catch (Exception ex)
-        {
-            ClickTrace.Step($"color-sort tip failed: {ex.Message}");
-        }
-    }
+    internal static void MaybeShowColorSortTip() => ColorSortTip.TryShowOnce();
 
     static bool IsAccessDenied(Exception ex)
     {

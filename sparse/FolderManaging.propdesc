@@ -31,5 +31,27 @@
         <numberFormat formatDuration="false" />
       </displayInfo>
     </propertyDescription>
+    <propertyDescription name="FolderManaging.Tags"
+                         formatID="{C3A91E70-5D4B-4F18-9E2A-7B6C5D4E3F21}"
+                         propID="2">
+      <description>Folder tags. Group by this column, or sort A to Z. A folder with several tags appears in each group.</description>
+      <searchInfo inInvertedIndex="false"
+                  isColumn="true"
+                  isColumnSparse="true"
+                  columnIndexType="OnDemand"
+                  maxSize="512" />
+      <typeInfo type="String"
+                groupingRange="Discrete"
+                isInnate="false"
+                canBePurged="true"
+                multipleValues="true"
+                isGroup="true"
+                isViewable="true"
+                isQueryable="true" />
+      <labelInfo label="__FM_TAG_COLUMN_LABEL__"
+                 invitationText="Tags"
+                 sortDescription="AToZ" />
+      <displayInfo displayType="String" alignment="Left" defaultColumnWidth="20" />
+    </propertyDescription>
   </propertyDescriptionList>
 </schema>

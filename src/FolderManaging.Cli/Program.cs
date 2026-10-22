@@ -244,6 +244,7 @@ internal static class Program
                     TraceLog.Append("shell-menu.log", $"[CLI] [PROCESS] FolderIconManager.RemoveCustomization");
                     FolderIconManager.RemoveCustomization(verb.Path);
                     await editor.SetColorTokenAsync(verb.Path, null, CancellationToken.None).ConfigureAwait(false);
+                    FolderIconManager.SyncFolderTags(verb.Path);
                     Console.WriteLine($"Restored default folder icon for '{verb.Path}'.");
                     TraceLog.Append("shell-menu.log", "[CLI] [SUCCESS] reset");
                     ClickTrace.Ok();
@@ -260,6 +261,7 @@ internal static class Program
                     Console.WriteLine($"Applied folder color '{colorId}' for '{verb.Path}'.");
                     TraceLog.Append("shell-menu.log", "[CLI] [SUCCESS] color");
                     ClickTrace.Ok($"color={colorId}");
+                    ColorSortTip.TryShowOnce();
                     scope.MarkFinished();
                     return 0;
                 }
@@ -281,6 +283,7 @@ internal static class Program
                     Console.WriteLine($"Applied RGB #{hex} for '{verb.Path}'.");
                     TraceLog.Append("shell-menu.log", "[CLI] [SUCCESS] rgb");
                     ClickTrace.Ok($"rgb=#{hex}");
+                    ColorSortTip.TryShowOnce();
                     scope.MarkFinished();
                     return 0;
                 }
@@ -296,6 +299,7 @@ internal static class Program
 
                     TraceLog.Append("shell-menu.log", $"[CLI] [PROCESS] UpsertTag tag={verb.Tag}");
                     await editor.UpsertTagAsync(verb.Path, verb.Tag, CancellationToken.None).ConfigureAwait(false);
+                    FolderIconManager.SyncFolderTags(verb.Path);
                     Console.WriteLine($"Added tag '{verb.Tag}' for '{verb.Path}'.");
                     TraceLog.Append("shell-menu.log", "[CLI] [SUCCESS] tag");
                     ClickTrace.Ok($"tag={verb.Tag}");

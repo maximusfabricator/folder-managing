@@ -65,4 +65,56 @@ internal static class FolderIconTint
         g.DrawImage(source, new Rectangle(0, 0, size, size));
         return dst;
     }
+
+    /// <summary>
+    /// Draws a small price-tag glyph in the bottom-right corner (in-place).
+    /// Visible on both yellow stock folders and strongly tinted ones.
+    /// </summary>
+    internal static void DrawTagBadge(Bitmap icon, Color badge)
+    {
+        var size = Math.Min(icon.Width, icon.Height);
+        if (size < 8)
+            return;
+
+        // Keep the overlay readable at 16px and chunky enough at 256px.
+        var tagW = Math.Max(5, (int)Math.Round(size * 0.34));
+        var tagH = Math.Max(4, (int)Math.Round(size * 0.22));
+        var margin = Math.Max(1, (int)Math.Round(size * 0.06));
+        var left = icon.Width - tagW - margin;
+        var top = icon.Height - tagH - margin;
+        var hole = Math.Max(1f, size * 0.035f);
+        var tip = tagW * 0.28f;
+
+        using var g = Graphics.FromImage(icon);
+        g.SmoothingMode = SmoothingMode.AntiAlias;
+        g.PixelOffsetMode = PixelOffsetMode.HighQuality;
+        g.CompositingMode = CompositingMode.SourceOver;
+
+        using var path = new GraphicsPath();
+        path.AddPolygon(new[]
+        {
+            new PointF(left + tip, top),
+            new PointF(left + tagW, top),
+            new PointF(left + tagW, top + tagH),
+            new PointF(left + tip, top + tagH),
+            new PointF(left, top + tagH * 0.5f),
+        });
+
+        // Soft dark rim so light badges do not disappear on yellow folders.
+        using (var rim = new Pen(Color.FromArgb(180, 20, 20, 20), Math.Max(1f, size / 64f)))
+            g.DrawPath(rim, path);
+
+        using (var fill = new SolidBrush(Color.FromArgb(245, badge.R, badge.G, badge.B)))
+            g.FillPath(fill, path);
+
+        using (var outline = new Pen(Color.FromArgb(220, 255, 255, 255), Math.Max(1f, size / 80f)))
+            g.DrawPath(outline, path);
+
+        var cx = left + tip * 0.55f;
+        var cy = top + tagH * 0.5f;
+        using (var holeBrush = new SolidBrush(Color.FromArgb(230, 255, 255, 255)))
+            g.FillEllipse(holeBrush, cx - hole, cy - hole, hole * 2f, hole * 2f);
+        using (var holeRim = new Pen(Color.FromArgb(160, 30, 30, 30), Math.Max(0.75f, size / 128f)))
+            g.DrawEllipse(holeRim, cx - hole, cy - hole, hole * 2f, hole * 2f);
+    }
 }

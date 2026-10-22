@@ -42,6 +42,9 @@ internal static class ProductInfo
     internal static string StartMenuShortcutPath =>
         Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.Programs), ShortcutFileName);
 
+    internal static string StartMenuUninstallShortcutPath =>
+        Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.Programs), "Uninstall Folder Managing.lnk");
+
     internal static string DesktopShortcutPath =>
         Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.DesktopDirectory), ShortcutFileName);
 

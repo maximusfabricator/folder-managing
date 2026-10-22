@@ -16,6 +16,10 @@ internal static class Win32Shell
     [DllImport("shell32.dll")]
     public static extern void SHChangeNotify(uint wEventId, uint uFlags, nint dwItem1, nint dwItem2);
 
+    /// <summary>Drops Explorer's cached read of <c>desktop.ini</c> so the open window picks up the new icon and columns.</summary>
+    [DllImport("shell32.dll")]
+    public static extern void SHFlushSFCache();
+
     [DllImport("user32.dll", SetLastError = true)]
     public static extern bool DestroyIcon(nint handle);
 
