@@ -1,4 +1,9 @@
+// SPDX-License-Identifier: GPL-2.0-only
+// Copyright (C) 2026 maximusfabricator
+
 using System.Windows;
+using System.Windows.Markup;
+using FolderManaging.Core;
 using FolderManaging.Core.Localization;
 using Wpf.Ui.Controls;
 
@@ -19,8 +24,11 @@ public partial class SetupWindow : FluentWindow
     internal SetupWindow(SetupMode mode)
     {
         InitializeComponent();
+        FlowDirection = UiText.IsRightToLeft ? FlowDirection.RightToLeft : FlowDirection.LeftToRight;
+        Language = XmlLanguage.GetLanguage(UiText.Current.Code);
         _mode = mode;
         SubtitleText.Text = UiText.Format("VersionLine", ProductInfo.Version);
+        CopyrightText.Text = AppInfo.Copyright;
 
         if (mode == SetupMode.Uninstall)
         {
@@ -45,7 +53,9 @@ public partial class SetupWindow : FluentWindow
 
         if (Environment.OSVersion.Version.Build < 22000)
         {
-            InstalledVersionText.Text = UiText.Get("Win10Note");
+            InstalledVersionText.Text = installed is null
+                ? UiText.Get("Win10Note")
+                : InstalledVersionText.Text + Environment.NewLine + UiText.Get("Win10Note");
             InstalledVersionText.Visibility = Visibility.Visible;
         }
     }
@@ -122,7 +132,7 @@ public partial class SetupWindow : FluentWindow
         ResultIcon.Symbol = success ? SymbolRegular.CheckmarkCircle24 : SymbolRegular.ErrorCircle24;
         if (details.Count > 0)
         {
-            ResultDetails.Text = string.Join(Environment.NewLine, details);
+            SetText(ResultDetails, string.Join(Environment.NewLine, details));
             ResultDetails.Visibility = Visibility.Visible;
         }
 
@@ -133,6 +143,41 @@ public partial class SetupWindow : FluentWindow
         SecondaryButton.Visibility = Visibility.Collapsed;
         WindowTitleBar.ShowClose = true;
     }
+
+    /// <summary>
+    /// WPF ignores the U+202A…U+202C marks that <see cref="UiText.LeftToRight"/> puts around paths,
+    /// so those parts become left-to-right runs instead.
+    /// </summary>
+    static void SetText(System.Windows.Controls.TextBlock block, string text)
+    {
+        block.Inlines.Clear();
+        var pieces = text.Split('\u202A');
+        block.Inlines.Add(new System.Windows.Documents.Run(pieces[0]));
+        foreach (var piece in pieces.Skip(1))
+        {
+            var end = piece.IndexOf('\u202C');
+            block.Inlines.Add(new System.Windows.Documents.Run(end < 0 ? piece : piece[..end])
+            {
+                FlowDirection = FlowDirection.LeftToRight,
+            });
+            if (end >= 0)
+                block.Inlines.Add(new System.Windows.Documents.Run(piece[(end + 1)..]));
+        }
+    }
+
+#if FM_DEV
+    /// <summary>Developer UI tour: the progress and result pages without installing anything.</summary>
+    internal void ShowProgressForTour(string text)
+    {
+        ShowPage(ProgressPage);
+        ProgressText.Text = text;
+        PrimaryButton.Visibility = Visibility.Collapsed;
+        SecondaryButton.IsEnabled = false;
+    }
+
+    internal void ShowResultForTour(bool success, string title, string text, IReadOnlyList<string> details) =>
+        ShowResult(success, title, text, details);
+#endif
 
     void OnSecondaryClick(object sender, RoutedEventArgs e) => Close();
 

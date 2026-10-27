@@ -1,3 +1,6 @@
+# SPDX-License-Identifier: GPL-2.0-only
+# Copyright (C) 2026 maximusfabricator
+
 <#!
 Registers the static cascading "Folder Managing" context menu for folders (per-user, HKCU).
 Run after publishing the CLI so -ExePath points to a stable location.

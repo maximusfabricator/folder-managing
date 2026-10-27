@@ -1,0 +1,87 @@
+<!-- SPDX-License-Identifier: GPL-2.0-only -->
+<!-- Copyright (C) 2026 maximusfabricator -->
+<UserControl x:Class="FolderManaging.Companion.Pages.AboutPage"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
+             xmlns:loc="clr-namespace:FolderManaging.Companion.Localization">
+    <ScrollViewer VerticalScrollBarVisibility="Auto">
+        <StackPanel Margin="36,24,36,24">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="*" />
+                </Grid.ColumnDefinitions>
+                <Image Grid.Column="0" Width="64" Height="64" VerticalAlignment="Center"
+                       Source="pack://application:,,,/Assets/logo.png" />
+                <StackPanel Grid.Column="1" Margin="16,0,0,0" VerticalAlignment="Center">
+                    <TextBlock Style="{StaticResource FmText}" FontSize="28" FontWeight="SemiBold" Text="Folder Managing" />
+                    <TextBlock x:Name="VersionText" Style="{StaticResource FmTextSecondary}" Margin="0,2,0,0" Opacity="0.8" />
+                </StackPanel>
+            </Grid>
+            <TextBlock Style="{StaticResource FmTextSecondary}" Margin="0,12,0,0" Opacity="0.65" TextWrapping="Wrap"
+                       Text="{loc:Loc SetupBlurb}" />
+
+            <ui:CardControl Margin="0,20,0,0" Padding="16,14">
+                <ui:CardControl.Header>
+                    <StackPanel>
+                        <TextBlock x:Name="AuthorText" Style="{StaticResource FmText}" FontSize="14" FontWeight="SemiBold" TextWrapping="Wrap" />
+                        <TextBlock x:Name="CopyrightText" Style="{StaticResource FmTextSecondary}" Margin="0,4,0,0" FontSize="12" Opacity="0.85"
+                                   FlowDirection="LeftToRight" HorizontalAlignment="Left" />
+                        <TextBlock x:Name="NameLogoText" Style="{StaticResource FmTextSecondary}" Margin="0,2,0,0" FontSize="12" Opacity="0.85" TextWrapping="Wrap" />
+                        <TextBlock Style="{StaticResource FmTextSecondary}" Margin="0,8,0,0" FontSize="12" Opacity="0.65" TextWrapping="Wrap"
+                                   Text="{loc:Loc AboutNotice}" />
+                    </StackPanel>
+                </ui:CardControl.Header>
+            </ui:CardControl>
+
+            <ui:CardControl Margin="0,12,0,0" Padding="16,14">
+                <ui:CardControl.Header>
+                    <StackPanel>
+                        <TextBlock Style="{StaticResource FmText}" FontSize="14" FontWeight="SemiBold" TextWrapping="Wrap"
+                                   Text="{loc:Loc AboutLicense}" />
+                        <TextBlock Style="{StaticResource FmTextSecondary}" Margin="0,4,0,0" FontSize="12" Opacity="0.65" TextWrapping="Wrap"
+                                   Text="{loc:Loc AboutLicenseBody}" />
+                        <TextBlock Style="{StaticResource FmTextSecondary}" Margin="0,6,0,0" FontSize="12" Opacity="0.65" TextWrapping="Wrap"
+                                   FontStyle="Italic" Text="{loc:Loc AboutLicenseOfficial}" />
+                    </StackPanel>
+                </ui:CardControl.Header>
+                <ui:Button Appearance="Secondary"
+                           Icon="{ui:SymbolIcon Symbol=DocumentText24}"
+                           Content="{loc:Loc OpenLicense}"
+                           Click="OnOpenLicenseClick" />
+            </ui:CardControl>
+
+            <ui:CardControl Margin="0,12,0,0" Padding="16,14">
+                <ui:CardControl.Header>
+                    <StackPanel>
+                        <TextBlock Style="{StaticResource FmText}" FontSize="14" FontWeight="SemiBold"
+                                   Text="{loc:Loc AboutSource}" />
+                        <TextBlock x:Name="SourceHintText" Style="{StaticResource FmTextSecondary}" Margin="0,4,0,0" FontSize="12" Opacity="0.65" TextWrapping="Wrap" />
+                        <TextBlock x:Name="SourceUrlText" Style="{StaticResource FmTextSecondary}" Margin="0,2,0,0" FontSize="12" Opacity="0.85"
+                                   FlowDirection="LeftToRight" HorizontalAlignment="Left" TextWrapping="Wrap" />
+                    </StackPanel>
+                </ui:CardControl.Header>
+                <ui:Button Appearance="Secondary"
+                           Icon="{ui:SymbolIcon Symbol=Open24}"
+                           Content="{loc:Loc OpenSource}"
+                           Click="OnOpenSourceClick" />
+            </ui:CardControl>
+
+            <ui:CardControl Margin="0,12,0,0" Padding="16,14">
+                <ui:CardControl.Header>
+                    <StackPanel>
+                        <TextBlock Style="{StaticResource FmText}" FontSize="14" FontWeight="SemiBold"
+                                   Text="{loc:Loc AboutThirdParty}" />
+                        <TextBlock Style="{StaticResource FmTextSecondary}" Margin="0,4,0,0" FontSize="12" Opacity="0.65" TextWrapping="Wrap"
+                                   Text="{loc:Loc AboutThirdPartyBody}" />
+                    </StackPanel>
+                </ui:CardControl.Header>
+                <ui:Button Appearance="Secondary"
+                           Icon="{ui:SymbolIcon Symbol=DocumentBulletList24}"
+                           Content="{loc:Loc OpenNotices}"
+                           Click="OnOpenNoticesClick" />
+            </ui:CardControl>
+        </StackPanel>
+    </ScrollViewer>
+</UserControl>

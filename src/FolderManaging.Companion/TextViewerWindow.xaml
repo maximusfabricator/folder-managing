@@ -1,0 +1,34 @@
+<!-- SPDX-License-Identifier: GPL-2.0-only -->
+<!-- Copyright (C) 2026 maximusfabricator -->
+<ui:FluentWindow x:Class="FolderManaging.Companion.TextViewerWindow"
+                 xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                 xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                 xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
+                 Icon="pack://application:,,,/Assets/FolderManaging.ico"
+                 Width="780" Height="660"
+                 MinWidth="480" MinHeight="360"
+                 WindowStartupLocation="CenterOwner"
+                 WindowBackdropType="Mica"
+                 ExtendsContentIntoTitleBar="True"
+                 FlowDirection="LeftToRight"
+                 Foreground="{DynamicResource TextFillColorPrimaryBrush}"
+                 TextElement.Foreground="{DynamicResource TextFillColorPrimaryBrush}">
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
+
+        <ui:TitleBar x:Name="Bar" Grid.Row="0" ShowMinimize="False" />
+
+        <TextBox x:Name="Body" Grid.Row="1" Margin="16,0,16,16"
+                 IsReadOnly="True"
+                 AcceptsReturn="True"
+                 TextWrapping="NoWrap"
+                 FontFamily="Cascadia Mono, Consolas"
+                 FontSize="13"
+                 VerticalScrollBarVisibility="Auto"
+                 HorizontalScrollBarVisibility="Auto"
+                 VerticalContentAlignment="Top" />
+    </Grid>
+</ui:FluentWindow>

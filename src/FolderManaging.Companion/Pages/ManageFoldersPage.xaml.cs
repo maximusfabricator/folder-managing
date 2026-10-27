@@ -1,7 +1,14 @@
+// SPDX-License-Identifier: GPL-2.0-only
+// Copyright (C) 2026 maximusfabricator
+
 using System.Collections.ObjectModel;
+using System.Globalization;
 using System.IO;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Media;
+using System.Windows.Threading;
+using FolderManaging.Companion.Localization;
 using FolderManaging.Core;
 using FolderManaging.Core.Diagnostics;
 using FolderManaging.Core.Localization;
@@ -28,14 +35,25 @@ public sealed class ManagedFolderRow
 
     public string PinnedDisplay => Entry.IsPinned ? UiText.Get("Yes") : UiText.Get("No");
 
+    public bool IsPinned => Entry.IsPinned;
+
+    public bool HasTags => Entry.Tags is { Count: > 0 };
+
+    public bool HasColor => !string.IsNullOrWhiteSpace(Entry.ColorToken);
+
     static string FormatColor(string? token, AppStateDocument doc)
     {
         if (string.IsNullOrWhiteSpace(token))
             return "—";
 
+        if (token.StartsWith("rgb-", StringComparison.OrdinalIgnoreCase))
+            return "#" + token["rgb-".Length..].ToUpperInvariant();
+
         var preset = doc.MenuColors.FirstOrDefault(c =>
             string.Equals(c.Id, token, StringComparison.OrdinalIgnoreCase));
-        return preset is null ? token : $"{preset.Label} ({preset.Id})";
+        if (preset is null)
+            return token;
+        return string.IsNullOrWhiteSpace(preset.Label) ? preset.Id : $"{preset.Label} ({preset.Id})";
     }
 
     static string FormatTags(IReadOnlyList<string> tags, AppStateDocument doc)
@@ -63,6 +81,7 @@ public partial class ManageFoldersPage : System.Windows.Controls.UserControl
     public ManageFoldersPage()
     {
         InitializeComponent();
+        UiDirection.Apply(this);
         Loaded += OnLoaded;
         Unloaded += OnUnloaded;
         IsVisibleChanged += (_, e) =>
@@ -117,6 +136,62 @@ public partial class ManageFoldersPage : System.Windows.Controls.UserControl
         FoldersGrid.ItemsSource = _rows;
         EmptyHint.Visibility = list.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
         FoldersGrid.Visibility = list.Count == 0 ? Visibility.Collapsed : Visibility.Visible;
+        Dispatcher.BeginInvoke(FitActions, DispatcherPriority.Loaded);
+    }
+
+    /// <summary>A path column narrower than this is unreadable, so the row buttons give up their text first.</summary>
+    const double PathMinWidth = 180;
+
+    /// <summary>A path that needs more than this is trimmed rather than taking the text away from the row buttons.</summary>
+    const double PathMaxWidth = 400;
+
+    double _actionsWidthWithText;
+
+    void OnGridSizeChanged(object sender, SizeChangedEventArgs e) => FitActions();
+
+    void FitActions()
+    {
+        if (!FoldersGrid.IsVisible || FoldersGrid.ActualWidth < 1)
+            return;
+
+        var compact = Equals(FoldersGrid.Tag, "compact");
+        if (!compact)
+            _actionsWidthWithText = ActionsColumn.ActualWidth;
+        var otherColumns = FoldersGrid.Columns.Where(c => c != PathColumn && c != ActionsColumn).Sum(c => c.ActualWidth);
+        var pathWanted = Math.Clamp(PathWidthNeeded(), PathMinWidth, PathMaxWidth);
+        var wantCompact = FoldersGrid.ActualWidth - otherColumns - _actionsWidthWithText < pathWanted;
+        if (wantCompact == compact)
+            return;
+
+        FoldersGrid.Tag = wantCompact ? "compact" : null;
+        // An Auto column only grows by itself, and the star column keeps what it took meanwhile: reset the first
+        // now and the second once the buttons have their new size.
+        ActionsColumn.Width = new DataGridLength(0);
+        ActionsColumn.Width = DataGridLength.Auto;
+        Dispatcher.BeginInvoke(() =>
+        {
+            PathColumn.Width = new DataGridLength(0);
+            PathColumn.Width = new DataGridLength(1, DataGridLengthUnitType.Star);
+            FitActions();
+        }, DispatcherPriority.Loaded);
+    }
+
+    /// <summary>
+    /// The width the path column needs to show the longest path in full, with the cell padding and a pixel for rounding.
+    /// Only styles and texts go in: right after a column reset the widths on screen are not up to date yet.
+    /// </summary>
+    double PathWidthNeeded()
+    {
+        if (_rows is null || _rows.Select(row => PathColumn.GetCellContent(row)).OfType<TextBlock>().FirstOrDefault()
+                is not { Parent: DataGridCell cell } text)
+            return 0;
+
+        var padding = cell.Padding.Left + cell.Padding.Right + text.Margin.Left + text.Margin.Right + 1;
+        var typeface = new Typeface(text.FontFamily, text.FontStyle, text.FontWeight, text.FontStretch);
+        var pixelsPerDip = VisualTreeHelper.GetDpi(text).PixelsPerDip;
+        return padding + _rows.Max(row => new FormattedText(row.PathDisplay, CultureInfo.InvariantCulture,
+            System.Windows.FlowDirection.LeftToRight, typeface, text.FontSize, System.Windows.Media.Brushes.Black, pixelsPerDip)
+            .WidthIncludingTrailingWhitespace);
     }
 
     /// <summary>
@@ -186,41 +261,56 @@ public partial class ManageFoldersPage : System.Windows.Controls.UserControl
         Reload(forceDisk: false);
     }
 
-    void OnClearTagsClick(object sender, RoutedEventArgs e)
+    async void OnClearTagsClick(object sender, RoutedEventArgs e)
     {
         if (sender is not System.Windows.Controls.Button { CommandParameter: ManagedFolderRow row })
             return;
 
         using var scope = ClickTrace.Begin("companion", "clear-tags", path: row.Entry.Path);
-        var doc = CompanionState.Document;
+        var previous = row.Entry.Tags.ToList();
         row.Entry.Tags.Clear();
-        PruneIfEmpty(doc, row.Entry);
-        CompanionState.Save();
-        FolderIconManager.SyncFolderTags(row.Entry.Path);
-        ClickTrace.Ok();
+        await SaveAndWriteFolderAsync(row.Entry, undo: () => row.Entry.Tags.AddRange(previous));
         scope.MarkFinished();
         Reload(forceDisk: false);
     }
 
-    void OnRemoveColorClick(object sender, RoutedEventArgs e)
+    async void OnRemoveColorClick(object sender, RoutedEventArgs e)
     {
         if (sender is not System.Windows.Controls.Button { CommandParameter: ManagedFolderRow row })
             return;
 
         using var scope = ClickTrace.Begin("companion", "remove-color", path: row.Entry.Path);
-        if (!FolderIconManager.TryRemoveCustomization(row.Entry.Path, out var warn) && !string.IsNullOrEmpty(warn))
-            ClickTrace.Step($"TryRemoveCustomization warn: {warn}");
-
-        var doc = CompanionState.Document;
+        var previous = row.Entry.ColorToken;
         row.Entry.ColorToken = null;
-        PruneIfEmpty(doc, row.Entry);
-        CompanionState.Save();
-        if (row.Entry.Tags.Count > 0)
-            FolderIconManager.SyncFolderTags(row.Entry.Path);
-        else
-            FolderIconManager.RequestExplorerRefreshForFolder(row.Entry.Path);
-        ClickTrace.Ok();
+        await SaveAndWriteFolderAsync(row.Entry, undo: () => row.Entry.ColorToken = previous);
         scope.MarkFinished();
         Reload(forceDisk: false);
+    }
+
+    /// <summary>
+    /// Saves the edit, then writes the folder's <c>desktop.ini</c>. If Windows refuses (and admin rights are declined),
+    /// the edit is undone so the list and the folder never disagree.
+    /// </summary>
+    async Task SaveAndWriteFolderAsync(FolderStateEntry entry, Action undo)
+    {
+        CompanionState.Save();
+        var error = await FolderWriteGuard.SyncAsync(Window.GetWindow(this), entry.Path);
+        if (error is null)
+        {
+            PruneIfEmpty(CompanionState.Document, entry);
+            CompanionState.Save();
+            ClickTrace.Ok();
+            return;
+        }
+
+        undo();
+        CompanionState.Save();
+        ClickTrace.Fail(error);
+        FmMessageBox.Show(
+            Window.GetWindow(this),
+            UiText.Format("ChangeFolderFail", UiText.LeftToRight(entry.Path), error),
+            "Folder Managing",
+            MessageBoxButton.OK,
+            MessageBoxImage.Warning);
     }
 }

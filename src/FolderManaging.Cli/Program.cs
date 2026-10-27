@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: GPL-2.0-only
+// Copyright (C) 2026 maximusfabricator
+
 using FolderManaging.Cli.Cli;
 using FolderManaging.Cli.Shell;
 using FolderManaging.Core;
@@ -242,9 +245,8 @@ internal static class Program
                 case "reset":
                 {
                     TraceLog.Append("shell-menu.log", $"[CLI] [PROCESS] FolderIconManager.RemoveCustomization");
-                    FolderIconManager.RemoveCustomization(verb.Path);
-                    await editor.SetColorTokenAsync(verb.Path, null, CancellationToken.None).ConfigureAwait(false);
-                    FolderIconManager.SyncFolderTags(verb.Path);
+                    FolderIconManager.RemoveCustomizationIfOurs(verb.Path);
+                    await editor.ResetFolderAsync(verb.Path, CancellationToken.None).ConfigureAwait(false);
                     Console.WriteLine($"Restored default folder icon for '{verb.Path}'.");
                     TraceLog.Append("shell-menu.log", "[CLI] [SUCCESS] reset");
                     ClickTrace.Ok();
@@ -298,6 +300,7 @@ internal static class Program
                     }
 
                     TraceLog.Append("shell-menu.log", $"[CLI] [PROCESS] UpsertTag tag={verb.Tag}");
+                    FolderIconManager.EnsureFolderWritable(verb.Path);
                     await editor.UpsertTagAsync(verb.Path, verb.Tag, CancellationToken.None).ConfigureAwait(false);
                     FolderIconManager.SyncFolderTags(verb.Path);
                     Console.WriteLine($"Added tag '{verb.Tag}' for '{verb.Path}'.");

@@ -1,6 +1,10 @@
+// SPDX-License-Identifier: GPL-2.0-only
+// Copyright (C) 2026 maximusfabricator
+
 using System.Windows;
 using FolderManaging.Core;
 using FolderManaging.Core.Diagnostics;
+using FolderManaging.Core.Localization;
 using Wpf.Ui.Controls;
 using MessageBoxButton = System.Windows.MessageBoxButton;
 
@@ -18,22 +22,24 @@ public partial class App : System.Windows.Application
 
     internal static TrayIconService? Tray { get; private set; }
 
+    /// <summary>Rebuilds the windows in the current <see cref="UiText.Current"/> language once the calling handler returns.</summary>
+    internal static void ReloadUi(Type page) =>
+        Current.Dispatcher.BeginInvoke(() => Tray?.ReloadUi(page));
+
     protected override void OnStartup(StartupEventArgs e)
     {
         base.OnStartup(e);
+        DispatcherUnhandledException += OnDispatcherUnhandledException;
         AppBootstrapper.Initialize();
         AppThemeService.ApplyFromDocument();
-        Task.Run(static () =>
+
+#if FM_DEV
+        if (Diagnostics.UiTour.TryStart(e.Args))
         {
-            try
-            {
-                FolderIconManager.RefreshAllFolderTags();
-            }
-            catch (Exception ex)
-            {
-                TraceLog.Append("shell-menu.log", $"[BOOT] RefreshAllFolderTags failed: {ex.Message}");
-            }
-        });
+            _specialModeOnly = true;
+            return;
+        }
+#endif
 
         if (TryRunSpecialMode(e.Args))
         {
@@ -47,6 +53,29 @@ public partial class App : System.Windows.Application
             Shutdown();
             return;
         }
+
+        // Only the tray instance repairs desktop.ini files: a second launch exits at once and would cut the work off.
+        // Protected folders (Program Files, Windows) come back as "denied" and need the elevated worker,
+        // otherwise state.json and the Explorer column stay apart forever.
+        Task.Run(async () =>
+        {
+            try
+            {
+                var denied = FolderIconManager.RefreshAllFolderTags();
+                foreach (var path in denied)
+                {
+                    var error = await FolderWriteGuard.SyncAsync(owner: null, path);
+                    if (error is null)
+                        TraceLog.Append("shell-menu.log", $"[BOOT] elevated sync ok '{path}'");
+                    else
+                        TraceLog.Append("shell-menu.log", $"[BOOT] elevated sync failed '{path}': {error}");
+                }
+            }
+            catch (Exception ex)
+            {
+                TraceLog.Append("shell-menu.log", $"[BOOT] RefreshAllFolderTags failed: {ex.Message}");
+            }
+        });
 
         ShutdownMode = ShutdownMode.OnExplicitShutdown;
         _tray = new TrayIconService();
@@ -72,8 +101,20 @@ public partial class App : System.Windows.Application
         base.OnExit(e);
     }
 
+    /// <summary>An error in a button handler shows a message; the app and the tray stay alive.</summary>
+    void OnDispatcherUnhandledException(object sender, System.Windows.Threading.DispatcherUnhandledExceptionEventArgs e)
+    {
+        TraceLog.Append("shell-menu.log", $"[COMPANION] [FAIL] unhandled UI error: {e.Exception}");
+        FmMessageBox.Show(
+            UiText.Format("UnexpectedError", e.Exception.Message),
+            "Folder Managing",
+            MessageBoxButton.OK,
+            System.Windows.MessageBoxImage.Warning);
+        e.Handled = true;
+    }
+
     /// <summary>
-    /// One tray per user session. A second launch (Start menu, context menu «Настройки») asks the first one
+    /// One tray per user session. A second launch (Start menu, context menu “Settings”) asks the first one
     /// to show its window and exits.
     /// </summary>
     bool TryBecomePrimaryInstance(bool showExisting)

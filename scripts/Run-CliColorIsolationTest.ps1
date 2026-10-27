@@ -1,3 +1,6 @@
+# SPDX-License-Identifier: GPL-2.0-only
+# Copyright (C) 2026 maximusfabricator
+
 $ErrorActionPreference = "Stop"
 
 # User asked artifacts\FolderManaging.Cli.exe - use SparseLayout publish output (same bits as MSIX layout).

@@ -18,7 +18,7 @@ Plus human-readable Title/Tags (`282 · purple`) as a Sort → More fallback.
 
 1. Register the schema once (Administrator): `.\scripts\sparse\Register-PropertySchema.ps1`
 2. Color folders (re-apply if they were colored before this build).
-3. Parent folder → **Sort → More… → «Цвет папки»** → ascending.
+3. Parent folder → **Sort → More… → “Folder color”** (the column title follows the app language) → ascending.
 
 Among colored folders, order follows the rainbow. Folders with no `ColorHue` have an empty value for that column — Explorer decides where empties go (often first or last depending on view); we no longer force them with `999`.
 

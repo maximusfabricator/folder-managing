@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: GPL-2.0-only
+// Copyright (C) 2026 maximusfabricator
+
 using System.Text.Json;
 using FolderManaging.Core.Models;
 
@@ -31,6 +34,9 @@ public sealed class JsonFolderStateStore : IFolderStateStore
             FileOptions.SequentialScan);
 
         var doc = JsonSerializer.Deserialize<AppStateDocument>(stream, SerializerOptions) ?? new AppStateDocument();
+        // This file already existed. A missing flag is an older save, not a request for the four default tags.
+        if (doc.DefaultTagsSeeded is null)
+            doc.DefaultTagsSeeded = true;
         MenuPresetNormalizer.Merge(doc);
         return doc;
     }
@@ -80,6 +86,9 @@ public sealed class JsonFolderStateStore : IFolderStateStore
                   .ConfigureAwait(false);
 
         doc ??= new AppStateDocument();
+        // This file already existed. A missing flag is an older save, not a request for the four default tags.
+        if (doc.DefaultTagsSeeded is null)
+            doc.DefaultTagsSeeded = true;
         MenuPresetNormalizer.Merge(doc);
         return doc;
     }

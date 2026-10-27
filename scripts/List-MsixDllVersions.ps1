@@ -1,3 +1,6 @@
+# SPDX-License-Identifier: GPL-2.0-only
+# Copyright (C) 2026 maximusfabricator
+
 # Lists .dll under installed MSIX and under local SparseLayout (if present), with FileVersion.
 $ErrorActionPreference = "SilentlyContinue"
 

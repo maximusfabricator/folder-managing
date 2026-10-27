@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: GPL-2.0-only
+// Copyright (C) 2026 maximusfabricator
+
 using System.Runtime.InteropServices;
 
 namespace FolderManaging.Core.Interop;
@@ -23,6 +26,7 @@ internal static class Win32Shell
     [DllImport("user32.dll", SetLastError = true)]
     public static extern bool DestroyIcon(nint handle);
 
+    public const uint FCSM_INFOTIP = 0x0000_0004;
     public const uint FCSM_ICONFILE = 0x0000_0010;
     public const uint FCS_FORCEWRITE = 0x0000_0002;
 

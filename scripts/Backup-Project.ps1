@@ -1,3 +1,6 @@
+# SPDX-License-Identifier: GPL-2.0-only
+# Copyright (C) 2026 maximusfabricator
+
 # Full tree backup excluding bin, obj, .git (and common junk).
 param(
     [string] $SourceDir = (Resolve-Path (Join-Path $PSScriptRoot "..")).Path,

@@ -1,3 +1,6 @@
+# SPDX-License-Identifier: GPL-2.0-only
+# Copyright (C) 2026 maximusfabricator
+
 # Senior diagnostics: Event Log, ACL on D:\CodingCodingCoding, COM CLSID registry.
 $ErrorActionPreference = "Continue"
 

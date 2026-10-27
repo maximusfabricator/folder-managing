@@ -1,3 +1,6 @@
+# SPDX-License-Identifier: GPL-2.0-only
+# Copyright (C) 2026 maximusfabricator
+
 <#
 .SYNOPSIS
 Exports the public certificate from a password-protected PFX to a .cer file (overwrites).

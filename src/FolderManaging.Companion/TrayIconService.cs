@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: GPL-2.0-only
+// Copyright (C) 2026 maximusfabricator
+
 using System.Drawing;
 using System.Windows;
 using System.Windows.Forms;
@@ -15,21 +18,68 @@ internal sealed class TrayIconService : IDisposable
 
     internal TrayIconService()
     {
-        var menu = new ContextMenuStrip();
-        menu.Items.Add(UiText.Get("TrayPaint"), null, (_, _) => OpenQuickColor());
-        menu.Items.Add(new ToolStripSeparator());
-        menu.Items.Add(UiText.Get("TraySettings"), null, (_, _) => ShowMainWindow());
-        menu.Items.Add(UiText.Get("TrayExit"), null, (_, _) => ExitApp());
-
         _icon = new NotifyIcon
         {
             Text = "Folder Managing",
             Visible = true,
-            ContextMenuStrip = menu,
+            ContextMenuStrip = BuildMenu(),
             Icon = LoadTrayIcon(),
         };
         _icon.DoubleClick += (_, _) => OpenQuickColor();
         ClickTrace.Step("tray icon created");
+    }
+
+    ContextMenuStrip BuildMenu()
+    {
+        var menu = new ContextMenuStrip
+        {
+            RightToLeft = UiText.IsRightToLeft ? RightToLeft.Yes : RightToLeft.No,
+        };
+        menu.Items.Add(UiText.Get("TrayPaint"), null, (_, _) => OpenQuickColor());
+        menu.Items.Add(new ToolStripSeparator());
+        menu.Items.Add(UiText.Get("TraySettings"), null, (_, _) => ShowMainWindow());
+        menu.Items.Add(UiText.Get("TrayExit"), null, (_, _) => ExitApp());
+        return menu;
+    }
+
+    /// <summary>
+    /// After a language change: XAML text is resolved when a window is built, so the main window is rebuilt in place
+    /// and opens on <paramref name="page"/>.
+    /// </summary>
+    internal void ReloadUi(Type page)
+    {
+        var oldMenu = _icon.ContextMenuStrip;
+        _icon.ContextMenuStrip = BuildMenu();
+        oldMenu?.Dispose();
+
+        var old = _mainWindow;
+        var fresh = new MainWindow(page);
+        if (old is not null)
+        {
+            var bounds = old.WindowState == WindowState.Normal
+                ? new Rect(old.Left, old.Top, old.Width, old.Height)
+                : old.RestoreBounds;
+            fresh.WindowStartupLocation = WindowStartupLocation.Manual;
+            fresh.Left = bounds.Left;
+            fresh.Top = bounds.Top;
+            fresh.Width = bounds.Width;
+            fresh.Height = bounds.Height;
+            if (old.WindowState == WindowState.Maximized)
+                fresh.WindowState = WindowState.Maximized;
+        }
+
+        AttachMainWindow(fresh);
+        System.Windows.Application.Current.MainWindow = fresh;
+        fresh.Show();
+        fresh.Activate();
+
+        if (old is not null)
+        {
+            old.Closing -= OnMainWindowClosing;
+            old.Close();
+        }
+
+        ClickTrace.Step($"ui reloaded for language {UiText.Current.Code}");
     }
 
     internal bool ExitRequested => _exitRequested;

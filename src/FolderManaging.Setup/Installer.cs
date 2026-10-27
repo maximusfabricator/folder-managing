@@ -1,4 +1,8 @@
+// SPDX-License-Identifier: GPL-2.0-only
+// Copyright (C) 2026 maximusfabricator
+
 using System.Diagnostics;
+using FolderManaging.Core;
 using FolderManaging.Core.Localization;
 using Microsoft.Win32;
 
@@ -115,6 +119,7 @@ internal static class Installer
         key.SetValue("DisplayName", ProductInfo.DisplayName);
         key.SetValue("DisplayVersion", ProductInfo.Version);
         key.SetValue("Publisher", ProductInfo.Publisher);
+        key.SetValue("URLInfoAbout", AppInfo.SourceUrl);
         key.SetValue("DisplayIcon", Path.Combine(ProductInfo.InstallDirectory, ProductInfo.IconFileName));
         key.SetValue("InstallLocation", ProductInfo.InstallDirectory);
         key.SetValue("UninstallString", $"\"{exe}\" --uninstall");

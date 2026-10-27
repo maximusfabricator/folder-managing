@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: GPL-2.0-only
+// Copyright (C) 2026 maximusfabricator
+
 namespace FolderManaging.Shell.Com;
 
 /// <summary>COM identity for the packaged Explorer command (must match AppxManifest com:Class Id).</summary>

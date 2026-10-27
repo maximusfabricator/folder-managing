@@ -6,9 +6,13 @@
   -->
   <PropertyGroup>
     <FmEdition Condition="'$(FmEdition)' == ''">Dev</FmEdition>
-    <Version>1.1.0</Version>
+    <Version>2.0.0</Version>
     <Product>Folder Managing</Product>
-    <Company>Folder Managing</Company>
+    <Company>maximusfabricator</Company>
+    <Authors>maximusfabricator</Authors>
+    <Copyright>Copyright (C) 2026 maximusfabricator</Copyright>
+    <PackageLicenseExpression>GPL-2.0-only</PackageLicenseExpression>
+    <RepositoryUrl>https://github.com/maximusfabricator/folder-managing</RepositoryUrl>
   </PropertyGroup>
 
   <PropertyGroup Condition="'$(FmEdition)' == 'Dev'">

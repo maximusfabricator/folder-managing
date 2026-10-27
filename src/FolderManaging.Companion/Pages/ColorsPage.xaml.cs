@@ -1,7 +1,11 @@
+// SPDX-License-Identifier: GPL-2.0-only
+// Copyright (C) 2026 maximusfabricator
+
 using System.Collections.ObjectModel;
 using System.Drawing;
 using System.Windows;
 using System.Windows.Controls;
+using FolderManaging.Companion.Localization;
 using FolderManaging.Core;
 using FolderManaging.Core.Diagnostics;
 using FolderManaging.Core.Localization;
@@ -17,12 +21,53 @@ public partial class ColorsPage : System.Windows.Controls.UserControl
     bool _suspendEditorSync;
     ObservableCollection<MenuColorPreset>? _colors;
 
+    bool _listening;
+
     public ColorsPage()
     {
         InitializeComponent();
+        UiDirection.Apply(this);
+        Unloaded += OnUnloaded;
     }
 
     void OnLoaded(object sender, RoutedEventArgs e)
+    {
+        if (!_listening)
+        {
+            CompanionState.DocumentChanged += OnDocumentChanged;
+            _listening = true;
+        }
+
+        BindColors();
+    }
+
+    void OnUnloaded(object sender, RoutedEventArgs e)
+    {
+        if (!_listening)
+            return;
+        CompanionState.DocumentChanged -= OnDocumentChanged;
+        _listening = false;
+    }
+
+    void OnDocumentChanged(object? sender, EventArgs e)
+    {
+        var editingId = _editing?.Id;
+        BindColors();
+        if (editingId is null)
+            return;
+
+        var live = CompanionState.Document.MenuColors.FirstOrDefault(c =>
+            string.Equals(c.Id, editingId, StringComparison.OrdinalIgnoreCase));
+        if (live is null)
+        {
+            CloseEditor();
+            return;
+        }
+
+        _editing = live;
+    }
+
+    void BindColors()
     {
         var doc = CompanionState.Document;
         _colors = new ObservableCollection<MenuColorPreset>(doc.MenuColors);
@@ -30,7 +75,12 @@ public partial class ColorsPage : System.Windows.Controls.UserControl
         ClickTrace.Step($"ColorsPage loaded count={_colors.Count}");
     }
 
-    void OnAnyTextChanged(object sender, TextChangedEventArgs e) => CompanionState.Save();
+    void OnAnyTextChanged(object sender, TextChangedEventArgs e)
+    {
+        // The binding also raises TextChanged when the page fills in saved names; only typing should write state.json.
+        if (sender is UIElement { IsKeyboardFocusWithin: true })
+            CompanionState.Save();
+    }
 
     void OnAddColorClick(object sender, RoutedEventArgs e)
     {
@@ -72,7 +122,7 @@ public partial class ColorsPage : System.Windows.Controls.UserControl
         {
             ClickTrace.Fail($"builtin color cannot be deleted id={preset.Id}");
             scope.MarkFinished();
-            System.Windows.MessageBox.Show(
+            FmMessageBox.Show(
                 Window.GetWindow(this),
                 UiText.Get("BuiltInColor"),
                 "Folder Managing",
@@ -82,8 +132,19 @@ public partial class ColorsPage : System.Windows.Controls.UserControl
         }
 
         var doc = CompanionState.Document;
-        doc.MenuColors.Remove(preset);
-        _colors?.Remove(preset);
+        var id = preset.Id;
+        doc.MenuColors.RemoveAll(c => string.Equals(c.Id, id, StringComparison.OrdinalIgnoreCase));
+        if (_colors is not null)
+        {
+            for (var i = _colors.Count - 1; i >= 0; i--)
+            {
+                if (string.Equals(_colors[i].Id, id, StringComparison.OrdinalIgnoreCase))
+                    _colors.RemoveAt(i);
+            }
+        }
+
+        if (_editing is not null && string.Equals(_editing.Id, id, StringComparison.OrdinalIgnoreCase))
+            CloseEditor();
         CompanionState.Save();
         ClickTrace.Ok($"deleted id={preset.Id}");
         scope.MarkFinished();

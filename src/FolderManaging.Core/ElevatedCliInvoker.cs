@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: GPL-2.0-only
+// Copyright (C) 2026 maximusfabricator
+
 using System.Diagnostics;
 using System.IO.Pipes;
 using System.Reflection;
@@ -11,7 +14,7 @@ using FolderManaging.Core.Storage;
 namespace FolderManaging.Core;
 
 /// <summary>
-/// Keeps one elevated CLI worker alive (named pipe) so protected-folder color/reset needs UAC only once,
+/// Keeps one elevated CLI worker alive (named pipe) so protected-folder color/reset/tags need UAC only once,
 /// not on every action. Medium-IL callers send commands to the worker after the first consent.
 /// </summary>
 public static class ElevatedCliInvoker
@@ -132,7 +135,24 @@ public static class ElevatedCliInvoker
     }
 
     /// <summary>
-    /// Runs color/reset via the elevated worker. Starts the worker (one UAC) if needed when auto-elevate is on
+    /// After the UI language changes: a running worker renames the Explorer columns (one title for the whole PC, HKLM).
+    /// Without a worker the columns follow the next time it starts; no UAC prompt is shown for this.
+    /// </summary>
+    public static void TrySyncLanguage()
+    {
+        try
+        {
+            if (IsWorkerRunning())
+                ClickTrace.Step($"elevated worker language sync → {Send("LANGUAGE")}");
+        }
+        catch (Exception ex)
+        {
+            ClickTrace.Step($"elevated worker language sync failed: {ex.Message}");
+        }
+    }
+
+    /// <summary>
+    /// Runs color/reset/tag/sync via the elevated worker. Starts the worker (one UAC) if needed when auto-elevate is on
     /// or when <paramref name="allowStartWorker"/> is true.
     /// </summary>
     public static bool TryInvoke(string action, string folderPath, string? value, out string errorMessage, bool allowStartWorker = true)
@@ -303,12 +323,42 @@ public static class ElevatedCliInvoker
                     if (parts.Length < 2)
                         return "ERR\tRESET needs path";
                     var path = parts[1];
-                    FolderIconManager.RemoveCustomization(path);
+                    FolderIconManager.RemoveCustomizationIfOurs(path);
                     new FolderStateEditor(new JsonFolderStateStore())
-                        .SetColorTokenAsync(path, null, CancellationToken.None).GetAwaiter().GetResult();
+                        .ResetFolderAsync(path, CancellationToken.None).GetAwaiter().GetResult();
+                    return "OK";
+                }
+                case "UNTAG":
+                {
+                    if (parts.Length < 3)
+                        return "ERR\tUNTAG needs path and tagId";
+                    var path = parts[1];
+                    new FolderStateEditor(new JsonFolderStateStore())
+                        .RemoveTagAsync(path, parts[2], CancellationToken.None).GetAwaiter().GetResult();
                     FolderIconManager.SyncFolderTags(path);
                     return "OK";
                 }
+                case "TAG":
+                {
+                    if (parts.Length < 3)
+                        return "ERR\tTAG needs path and tagId";
+                    var path = parts[1];
+                    new FolderStateEditor(new JsonFolderStateStore())
+                        .UpsertTagAsync(path, parts[2], CancellationToken.None).GetAwaiter().GetResult();
+                    FolderIconManager.SyncFolderTags(path);
+                    return "OK";
+                }
+                case "SYNC":
+                {
+                    if (parts.Length < 2)
+                        return "ERR\tSYNC needs path";
+                    FolderIconManager.SyncFolderTags(parts[1]);
+                    return "OK";
+                }
+                case "LANGUAGE":
+                    UiText.ApplyToProcess();
+                    ShellProperties.PropertySchemaRegistration.SyncColumnLabelForCurrentLanguage();
+                    return "OK";
                 default:
                     return $"ERR\tunknown op {op}";
             }
@@ -327,6 +377,9 @@ public static class ElevatedCliInvoker
             "color" when !string.IsNullOrWhiteSpace(value) => $"COLOR\t{path}\t{value}",
             "rgb" when !string.IsNullOrWhiteSpace(value) => $"RGB\t{path}\t{value}",
             "reset" => $"RESET\t{path}",
+            "tag" when !string.IsNullOrWhiteSpace(value) => $"TAG\t{path}\t{value}",
+            "untag" when !string.IsNullOrWhiteSpace(value) => $"UNTAG\t{path}\t{value}",
+            "sync" => $"SYNC\t{path}",
             _ => null,
         };
     }
@@ -424,7 +477,10 @@ public static class ElevatedCliInvoker
         {
             AppContext.BaseDirectory,
         };
+        // Empty in the single-file maintenance tool, where AppContext.BaseDirectory already is the right folder.
+#pragma warning disable IL3000
         var asm = Assembly.GetExecutingAssembly().Location;
+#pragma warning restore IL3000
         if (!string.IsNullOrEmpty(asm))
             raw.Add(Path.GetDirectoryName(asm));
         try

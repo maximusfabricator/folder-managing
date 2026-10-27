@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: GPL-2.0-only
+// Copyright (C) 2026 maximusfabricator
+
 using System.ComponentModel;
 using System.Diagnostics;
 using System.Text;
@@ -138,7 +141,7 @@ internal static class SystemTools
     internal static void CreateShortcut(string shortcutPath, string targetPath, string arguments, string iconPath, string description)
     {
         Directory.CreateDirectory(Path.GetDirectoryName(shortcutPath)!);
-        var shellType = Type.GetTypeFromProgID("WScript.Shell") ?? throw new InvalidOperationException("WScript.Shell недоступен.");
+        var shellType = Type.GetTypeFromProgID("WScript.Shell") ?? throw new InvalidOperationException("WScript.Shell is not available.");
         dynamic shell = Activator.CreateInstance(shellType)!;
         try
         {

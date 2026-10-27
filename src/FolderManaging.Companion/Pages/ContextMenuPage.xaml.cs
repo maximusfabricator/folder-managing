@@ -1,5 +1,9 @@
+// SPDX-License-Identifier: GPL-2.0-only
+// Copyright (C) 2026 maximusfabricator
+
 using System.Windows;
 using System.Windows.Controls;
+using FolderManaging.Companion.Localization;
 using FolderManaging.Core.Diagnostics;
 using FolderManaging.Core.Localization;
 using FolderManaging.Core.Models;
@@ -18,6 +22,7 @@ public partial class ContextMenuPage : System.Windows.Controls.UserControl
     public ContextMenuPage()
     {
         InitializeComponent();
+        UiDirection.Apply(this);
     }
 
     void OnLoaded(object sender, RoutedEventArgs e)
@@ -88,7 +93,7 @@ public partial class ContextMenuPage : System.Windows.Controls.UserControl
             }
         }
 
-        System.Windows.MessageBox.Show(
+        FmMessageBox.Show(
             Window.GetWindow(this),
             UiText.Get("SeparatorsFull"),
             UiText.Get("MenuPageTitle"),
@@ -98,7 +103,7 @@ public partial class ContextMenuPage : System.Windows.Controls.UserControl
 
     void OnResetMenuClick(object sender, RoutedEventArgs e)
     {
-        var answer = System.Windows.MessageBox.Show(
+        var answer = FmMessageBox.Show(
             Window.GetWindow(this),
             UiText.Get("ResetMenuConfirm"),
             UiText.Get("MenuPageTitle"),
@@ -129,6 +134,20 @@ public partial class ContextMenuPage : System.Windows.Controls.UserControl
         CommitLayout("move");
     }
 
+    /// <summary>
+    /// A row needs about 400 px (toggle, text, name box, arrows), the preview 316 px.
+    /// In a narrower window the preview steps aside so the rows keep room for their text.
+    /// </summary>
+    const double MinWidthWithPreview = 720;
+
+    void OnBodySizeChanged(object sender, SizeChangedEventArgs e)
+    {
+        var wide = e.NewSize.Width >= MinWidthWithPreview;
+        PreviewCard.Visibility = wide ? Visibility.Visible : Visibility.Collapsed;
+        PreviewGapColumn.Width = new GridLength(wide ? 16 : 0);
+        PreviewColumn.Width = new GridLength(wide ? 300 : 0);
+    }
+
     void RebuildEntries()
     {
         EntriesPanel.Children.Clear();
@@ -152,8 +171,7 @@ public partial class ContextMenuPage : System.Windows.Controls.UserControl
 
         var grid = new Grid();
         grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
-        grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
-        grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+        grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star), MinWidth = 120 });
         grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
 
         if (!isSeparator)
@@ -179,7 +197,8 @@ public partial class ContextMenuPage : System.Windows.Controls.UserControl
         var title = ThemedText(
             ContextMenuItemKinds.DisplayName(entry.Kind),
             isSeparator ? 12 : 14,
-            secondary: isSeparator);
+            secondary: isSeparator,
+            wrap: true);
         texts.Children.Add(title);
 
         var hint = DescribeEntry(entry.Kind);
@@ -188,16 +207,12 @@ public partial class ContextMenuPage : System.Windows.Controls.UserControl
             texts.Children.Add(ThemedText(hint, 12, secondary: true, wrap: true, topMargin: 2));
         }
 
-        Grid.SetColumn(texts, 1);
-        grid.Children.Add(texts);
-
+        // Under the texts rather than beside them: the default label is the placeholder and must fit in every language.
         if (ContextMenuItemKinds.SupportsLabel(entry.Kind))
         {
             var labelBox = new WpfTextBox
             {
-                Width = 230,
-                Margin = new Thickness(12, 0, 0, 0),
-                VerticalAlignment = VerticalAlignment.Center,
+                Margin = new Thickness(0, 8, 0, 0),
                 PlaceholderText = ContextMenuItemKinds.DefaultLabel(entry.Kind),
                 Text = entry.Label ?? string.Empty,
                 ToolTip = UiText.Get("CustomLabelEmpty"),
@@ -207,9 +222,11 @@ public partial class ContextMenuPage : System.Windows.Controls.UserControl
                 entry.Label = string.IsNullOrWhiteSpace(labelBox.Text) ? null : labelBox.Text.Trim();
                 SaveLayout($"label {entry.Kind}");
             };
-            Grid.SetColumn(labelBox, 2);
-            grid.Children.Add(labelBox);
+            texts.Children.Add(labelBox);
         }
+
+        Grid.SetColumn(texts, 1);
+        grid.Children.Add(texts);
 
         var buttons = new StackPanel { Orientation = System.Windows.Controls.Orientation.Horizontal, Margin = new Thickness(8, 0, 0, 0) };
         buttons.Children.Add(MakeIconButton(SymbolRegular.ArrowUp24, UiText.Get("MoveUp"), index > 0, () => Move(index, -1)));
@@ -223,7 +240,7 @@ public partial class ContextMenuPage : System.Windows.Controls.UserControl
             }));
         }
 
-        Grid.SetColumn(buttons, 3);
+        Grid.SetColumn(buttons, 2);
         grid.Children.Add(buttons);
 
         card.Child = grid;
@@ -336,7 +353,7 @@ public partial class ContextMenuPage : System.Windows.Controls.UserControl
         {
             if (text is null)
                 continue;
-            PreviewPanel.Children.Add(ThemedText(text, 13, secondary: dim, topMargin: 4));
+            PreviewPanel.Children.Add(ThemedText(text, 13, secondary: dim, wrap: true, topMargin: 4));
         }
 
         var count = lines.Count(l => l.Text is not null && !l.Dim);

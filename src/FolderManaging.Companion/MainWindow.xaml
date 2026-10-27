@@ -1,3 +1,5 @@
+<!-- SPDX-License-Identifier: GPL-2.0-only -->
+<!-- Copyright (C) 2026 maximusfabricator -->
 <ui:FluentWindow x:Class="FolderManaging.Companion.MainWindow"
                  xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
                  xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
@@ -64,6 +66,9 @@
                 <ui:NavigationViewItem Content="{loc:Loc NavResetIcon}"
                                        Icon="{ui:SymbolIcon Symbol=ArrowReset24}"
                                        Click="OnResetFolderIconClick" />
+                <ui:NavigationViewItem Content="{loc:Loc NavAbout}"
+                                       Icon="{ui:SymbolIcon Symbol=Info24}"
+                                       TargetPageType="{x:Type pages:AboutPage}" />
             </ui:NavigationView.FooterMenuItems>
         </ui:NavigationView>
     </Grid>

@@ -1,7 +1,11 @@
+// SPDX-License-Identifier: GPL-2.0-only
+// Copyright (C) 2026 maximusfabricator
+
 using System.Diagnostics;
 using System.IO;
 using System.Windows;
 using System.Windows.Forms;
+using FolderManaging.Companion.Localization;
 using FolderManaging.Core;
 using FolderManaging.Core.Localization;
 using FolderManaging.Core.Diagnostics;
@@ -11,9 +15,13 @@ namespace FolderManaging.Companion;
 
 public partial class MainWindow : FluentWindow
 {
-    public MainWindow()
+    readonly Type _startPage;
+
+    public MainWindow(Type? startPage = null)
     {
         InitializeComponent();
+        UiDirection.Apply(this);
+        _startPage = startPage ?? typeof(Pages.ColorsPage);
 #if !FM_DEV
         LogsNavItem.Content = UiText.Get("NavErrorLog");
 #endif
@@ -23,7 +31,7 @@ public partial class MainWindow : FluentWindow
     void OnLoaded(object sender, RoutedEventArgs e)
     {
         AppThemeService.ApplyFromDocument();
-        RootNav.Navigate(typeof(Pages.ColorsPage));
+        RootNav.Navigate(_startPage);
         ClickTrace.Step("Companion MainWindow loaded");
         TraceLog.EnsureLogLocationsHint();
     }
@@ -58,9 +66,9 @@ public partial class MainWindow : FluentWindow
         {
             ClickTrace.Fail(ex);
             scope.MarkFinished();
-            System.Windows.MessageBox.Show(
+            FmMessageBox.Show(
                 this,
-                UiText.Format("OpenLogsFail", ex.Message, TraceLog.UserVisibleLogDirectory),
+                UiText.Format("OpenLogsFail", ex.Message, UiText.LeftToRight(TraceLog.UserVisibleLogDirectory)),
                 "Folder Managing",
                 System.Windows.MessageBoxButton.OK,
                 System.Windows.MessageBoxImage.Warning);
@@ -87,12 +95,11 @@ public partial class MainWindow : FluentWindow
         using var scope = ClickTrace.Begin("companion", "reset-icon", path: dlg.SelectedPath);
         try
         {
-            FolderIconManager.RemoveCustomization(dlg.SelectedPath);
-            ClearColorTokenKeepTags(dlg.SelectedPath);
-            FolderIconManager.SyncFolderTags(dlg.SelectedPath);
+            FolderIconManager.RemoveCustomizationIfOurs(dlg.SelectedPath);
+            ForgetFolder(dlg.SelectedPath);
             ClickTrace.Ok($"reset path='{dlg.SelectedPath}'");
             scope.MarkFinished();
-            System.Windows.MessageBox.Show(
+            FmMessageBox.Show(
                 this,
                 UiText.Get("IconResetOk"),
                 "Folder Managing",
@@ -106,20 +113,19 @@ public partial class MainWindow : FluentWindow
             {
                 ClickTrace.Fail(ex);
                 scope.MarkFinished();
-                System.Windows.MessageBox.Show(
+                FmMessageBox.Show(
                     this,
-                    UiText.Format("IconResetFail", dlg.SelectedPath, ex.Message),
+                    UiText.Format("IconResetFail", UiText.LeftToRight(dlg.SelectedPath), ex.Message),
                     "Folder Managing",
                     System.Windows.MessageBoxButton.OK,
                     System.Windows.MessageBoxImage.Warning);
                 return;
             }
 
-            ClearColorTokenKeepTags(dlg.SelectedPath);
-            FolderIconManager.SyncFolderTags(dlg.SelectedPath);
+            CompanionState.ReloadFromDiskIfStale();
             ClickTrace.Ok($"reset via elevated CLI path='{dlg.SelectedPath}'");
             scope.MarkFinished();
-            System.Windows.MessageBox.Show(
+            FmMessageBox.Show(
                 this,
                 UiText.Get("IconResetOk"),
                 "Folder Managing",
@@ -130,7 +136,7 @@ public partial class MainWindow : FluentWindow
         {
             ClickTrace.Fail(ex);
             scope.MarkFinished();
-            System.Windows.MessageBox.Show(
+            FmMessageBox.Show(
                 this,
                 ex.Message,
                 "Folder Managing",
@@ -144,9 +150,9 @@ public partial class MainWindow : FluentWindow
         var auto = CompanionState.Document.AutoElevateProtectedFolders;
         if (!auto)
         {
-            var answer = System.Windows.MessageBox.Show(
+            var answer = FmMessageBox.Show(
                 this,
-                UiText.Format("ResetUac", path),
+                UiText.Format("ResetUac", UiText.LeftToRight(path)),
                 "Folder Managing",
                 System.Windows.MessageBoxButton.YesNo,
                 System.Windows.MessageBoxImage.Warning);
@@ -161,7 +167,8 @@ public partial class MainWindow : FluentWindow
         return ElevatedCliInvoker.TryInvoke("reset", path, value: null, out _);
     }
 
-    static void ClearColorTokenKeepTags(string folderPath)
+    /// <summary>Drops the folder's color and tags from state (a Quick access pin stays).</summary>
+    static void ForgetFolder(string folderPath)
     {
         var doc = CompanionState.Document;
         var full = Path.TrimEndingDirectorySeparator(Path.GetFullPath(folderPath));
@@ -173,6 +180,9 @@ public partial class MainWindow : FluentWindow
         if (entry is null)
             return;
         entry.ColorToken = null;
+        entry.Tags.Clear();
+        if (!entry.IsPinned)
+            doc.Folders.Remove(entry);
         CompanionState.Save();
     }
 }

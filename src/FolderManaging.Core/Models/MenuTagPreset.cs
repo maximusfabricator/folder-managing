@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: GPL-2.0-only
+// Copyright (C) 2026 maximusfabricator
+
 namespace FolderManaging.Core.Models;
 
 /// <summary>Tag preset shown in the shell context menu (and as a colored badge on the folder .ico).</summary>

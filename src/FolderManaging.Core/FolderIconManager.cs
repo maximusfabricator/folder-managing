@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: GPL-2.0-only
+// Copyright (C) 2026 maximusfabricator
+
 using System.Drawing;
 using System.Runtime.InteropServices;
 using System.Text;
@@ -317,6 +320,15 @@ public static class FolderIconManager
     /// <summary>Removes our <c>desktop.ini</c> customization and folder read-only flag so Explorer shows the default folder icon.</summary>
     public static void RemoveCustomization(string folderPath)
     {
+        if (!RemoveCustomizationIfOurs(folderPath))
+            throw new InvalidOperationException(
+                $"The existing '{DesktopIniFileName}' in this folder was not created by Folder Managing (missing marker). It was not deleted.");
+    }
+
+    /// <summary>Like <see cref="RemoveCustomization"/>, but leaves a foreign <c>desktop.ini</c> alone instead of throwing.</summary>
+    /// <returns><c>false</c> when the folder has a <c>desktop.ini</c> that Folder Managing did not write.</returns>
+    public static bool RemoveCustomizationIfOurs(string folderPath)
+    {
         if (string.IsNullOrWhiteSpace(folderPath))
             throw new ArgumentException("Folder path is required.", nameof(folderPath));
 
@@ -326,16 +338,98 @@ public static class FolderIconManager
 
         var iniPath = Path.Combine(fullFolder, DesktopIniFileName);
         if (!File.Exists(iniPath))
-            return;
+        {
+            FlushOpenExplorerAfterIniChange(fullFolder);
+            return true;
+        }
 
         if (!IsManagedDesktopIni(iniPath))
-            throw new InvalidOperationException(
-                $"The existing '{DesktopIniFileName}' in this folder was not created by Folder Managing (missing marker). It was not deleted.");
+            return false;
 
         RestoreOrDeleteManagedIni(fullFolder, iniPath);
         PerFolderIconCache.DeleteOldVersions(fullFolder, keepPath: null);
         NotifyShellAfterDesktopIniChange(fullFolder);
+        FlushOpenExplorerAfterIniChange(fullFolder);
         CleanupLegacySortTailsInParent(fullFolder);
+        return true;
+    }
+
+    /// <summary>
+    /// An already-open Explorer window keeps the previous tag group after <c>desktop.ini</c> is deleted or replaced by the
+    /// folder's original ini (Program Files). <c>SHChangeNotify</c> does not drop that cache; an InfoTip force-write does.
+    /// The force-write edits the file, so afterwards we delete the stub it creates or put the original text back.
+    /// </summary>
+    static void FlushOpenExplorerAfterIniChange(string fullFolder)
+    {
+        var iniPath = Path.Combine(fullFolder, DesktopIniFileName);
+        try
+        {
+            var kept = File.Exists(iniPath) ? File.ReadAllText(iniPath) : null;
+            var fcs = new Win32Shell.SHFOLDERCUSTOMSETTINGS
+            {
+                dwSize = (uint)Marshal.SizeOf<Win32Shell.SHFOLDERCUSTOMSETTINGS>(),
+                dwMask = Win32Shell.FCSM_INFOTIP,
+                pszInfoTip = kept is null ? "" : TryReadIniValue(iniPath, "InfoTip") ?? "",
+            };
+            Win32Shell.SHGetSetFolderCustomSettings(ref fcs, fullFolder, Win32Shell.FCS_FORCEWRITE);
+            if (kept is null)
+            {
+                if (File.Exists(iniPath) && IsDisposableInfoTipStub(iniPath))
+                {
+                    PrepareDesktopIniForWrite(iniPath);
+                    File.Delete(iniPath);
+                    NormalizeFolderAttributesAfterClear(fullFolder);
+                }
+            }
+            else if (File.ReadAllText(iniPath) != kept)
+            {
+                WriteManagedDesktopIni(iniPath, kept);
+            }
+        }
+        catch (Exception ex)
+        {
+            ClickTrace.Step($"open explorer tag flush failed: {ex.Message}");
+        }
+    }
+
+    /// <summary>True for the empty <c>[.ShellClassInfo] InfoTip=</c> file that the folder-settings API writes and nothing else.</summary>
+    static bool IsDisposableInfoTipStub(string iniPath)
+    {
+        string text;
+        try
+        {
+            text = File.ReadAllText(iniPath);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            return false;
+        }
+
+        var sawSection = false;
+        var sawInfoTip = false;
+        foreach (var raw in text.Split(['\r', '\n'], StringSplitOptions.RemoveEmptyEntries))
+        {
+            var line = raw.Trim();
+            if (line.Length == 0 || line[0] == ';')
+                continue;
+            if (string.Equals(line, "[.ShellClassInfo]", StringComparison.OrdinalIgnoreCase))
+            {
+                sawSection = true;
+                continue;
+            }
+
+            const string infoTip = "InfoTip=";
+            if (line.StartsWith(infoTip, StringComparison.OrdinalIgnoreCase) &&
+                line[infoTip.Length..].Trim().Length == 0)
+            {
+                sawInfoTip = true;
+                continue;
+            }
+
+            return false;
+        }
+
+        return sawSection && sawInfoTip;
     }
 
     /// <summary>Restores the pre-existing <c>desktop.ini</c> saved by <see cref="ComposeManagedIniBody"/>, or deletes ours.</summary>
@@ -467,6 +561,28 @@ public static class FolderIconManager
     }
 
     /// <summary>
+    /// Throws <see cref="UnauthorizedAccessException"/> for protected folders (Program Files, Windows),
+    /// so callers can stop before they change <c>state.json</c> and retry through the elevated worker.
+    /// </summary>
+    public static void EnsureFolderWritable(string folderPath)
+    {
+        var fullFolder = Path.GetFullPath(folderPath);
+        if (!Directory.Exists(fullFolder))
+            throw new DirectoryNotFoundException(fullFolder);
+
+        var probe = Path.Combine(fullFolder, DesktopIniFileName + ".probe");
+        try
+        {
+            File.WriteAllText(probe, "probe");
+            File.Delete(probe);
+        }
+        catch (Exception ex) when (ex is UnauthorizedAccessException or IOException)
+        {
+            throw new UnauthorizedAccessException($"Cannot write to folder '{fullFolder}'.", ex);
+        }
+    }
+
+    /// <summary>
     /// Writes the folder's current tags into <c>desktop.ini</c> and regenerates the .ico
     /// (stock or tinted folder + optional tag badge). With no tags and no color, removes our ini.
     /// </summary>
@@ -495,22 +611,16 @@ public static class FolderIconManager
             return;
         }
 
-        var probe = Path.Combine(fullFolder, DesktopIniFileName + ".probe");
-        try
-        {
-            File.WriteAllText(probe, "probe");
-            File.Delete(probe);
-        }
-        catch (Exception ex) when (ex is UnauthorizedAccessException or IOException)
-        {
-            throw new UnauthorizedAccessException($"Cannot write to folder '{fullFolder}'.", ex);
-        }
-
         var cacheTag = (folderTint is { } t
                            ? PerFolderIconCache.TagForRgb(t)
                            : "stock")
                        + (tagBadge is { } b ? "-t" + MenuColorHex.ToHexRgb(b).ToLowerInvariant() : "")
                        + (labels.Count > 0 ? "-tags" : "");
+        // Already current: skip, so a protected folder does not ask for admin rights for nothing.
+        if (managed && IsSyncedIni(iniPathExisting, fullFolder, labels, cacheTag))
+            return;
+
+        EnsureFolderWritable(fullFolder);
         var iconFullPath = WriteVersionedCompositeIcon(fullFolder, folderTint, tagBadge, cacheTag);
         var iconResourceLine = BuildIconResourceLine(iconFullPath);
         int? hue = folderTint is { } tint ? FolderColorHueProperty.FromColor(tint) : null;
@@ -522,6 +632,21 @@ public static class FolderIconManager
         CommitIconViaShellApi(fullFolder, iniPath, body, iconFullPath);
         NotifyShellAfterDesktopIniChange(fullFolder);
         PerFolderIconCache.DeleteOldVersions(fullFolder, iconFullPath);
+    }
+
+    /// <summary>True when our <c>desktop.ini</c> already lists these labels and uses this folder's icon for <paramref name="cacheTag"/>.</summary>
+    static bool IsSyncedIni(string iniPath, string fullFolder, IReadOnlyList<string> labels, string cacheTag)
+    {
+        var tags = TryReadIniValue(iniPath, FolderTagProperty.IniKey) ?? "";
+        if (!string.Equals(tags, FolderTagProperty.Join(labels), StringComparison.Ordinal))
+            return false;
+
+        var icon = TryReadIniValue(iniPath, "IconResource");
+        if (string.IsNullOrWhiteSpace(icon))
+            return false;
+        var comma = icon.LastIndexOf(',');
+        var iconPath = (comma > 0 ? icon[..comma] : icon).Trim().Trim('"');
+        return PerFolderIconCache.IsCurrentIcon(iconPath, fullFolder, cacheTag);
     }
 
     static string WriteVersionedCompositeIcon(string fullFolder, Color? folderTint, Color? tagBadge, string cacheTag)
@@ -585,8 +710,10 @@ public static class FolderIconManager
     }
 
     /// <summary>Rewrites <c>desktop.ini</c> for folders whose saved tags do not match the file.</summary>
-    public static void RefreshAllFolderTags()
+    /// <returns>Folders Windows did not let us write (Program Files, Windows), to retry elevated.</returns>
+    public static IReadOnlyList<string> RefreshAllFolderTags()
     {
+        var denied = new List<string>();
         AppStateDocument doc;
         try
         {
@@ -595,7 +722,7 @@ public static class FolderIconManager
         catch (Exception ex)
         {
             TraceLog.Append("shell-menu.log", $"[CORE] RefreshAllFolderTags load failed: {ex.Message}");
-            return;
+            return denied;
         }
 
         // Color-only folders also refresh so a removed tag drops the badge from the .ico.
@@ -605,11 +732,18 @@ public static class FolderIconManager
             {
                 SyncFolderTags(folder.Path);
             }
+            catch (UnauthorizedAccessException ex)
+            {
+                denied.Add(folder.Path);
+                TraceLog.Append("shell-menu.log", $"[CORE] SyncFolderTags access denied '{folder.Path}': {ex.Message}");
+            }
             catch (Exception ex)
             {
                 TraceLog.Append("shell-menu.log", $"[CORE] SyncFolderTags failed '{folder.Path}': {ex.Message}");
             }
         }
+
+        return denied;
     }
 
     static string? TryReadIniValue(string iniPath, string key)

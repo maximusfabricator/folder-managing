@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: GPL-2.0-only
+// Copyright (C) 2026 maximusfabricator
+
 using System.Diagnostics;
 using FolderManaging.Core;
 using FolderManaging.Core.Localization;
@@ -40,7 +43,7 @@ internal static class Uninstaller
             {
                 // Uninstall warnings are only folders that stayed colored even with admin rights.
                 var elevatedWarnings = Installer.RunElevatedStep("uninstall", workDir);
-                warnings.AddRange(elevatedWarnings.Select(w => UiText.Format("FolderNotReset", w)));
+                warnings.AddRange(elevatedWarnings.Select(w => UiText.Format("FolderNotReset", UiText.LeftToRight(w))));
                 if (elevatedWarnings.Count > 0)
                     allFoldersReset = false;
             }

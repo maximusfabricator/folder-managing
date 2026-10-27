@@ -1,4 +1,8 @@
+// SPDX-License-Identifier: GPL-2.0-only
+// Copyright (C) 2026 maximusfabricator
+
 using System.Drawing;
+using FolderManaging.Core.Localization;
 using FolderManaging.Core.Models;
 
 namespace FolderManaging.Core.Storage;
@@ -18,6 +22,8 @@ public static class MenuStateReader
 
         _doc = JsonFolderStateStore.LoadSynchronously();
         _stateTicks = ticks;
+        // The Explorer menu host lives for hours; it picks up a language changed in Settings on the next right-click.
+        UiText.Use(_doc.Language);
         return _doc;
     }
 

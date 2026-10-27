@@ -1,3 +1,6 @@
+# SPDX-License-Identifier: GPL-2.0-only
+# Copyright (C) 2026 maximusfabricator
+
 <#
 .SYNOPSIS
 Builds the user edition and the single offline installer: artifacts\release\FolderManaging-Setup-<Version>.exe
@@ -12,10 +15,11 @@ Builds the user edition and the single offline installer: artifacts\release\Fold
 
 .NOTES
 Requires the Windows SDK (makeappx.exe, signtool.exe) and the .NET 8 SDK. Run from any folder:
-  powershell -ExecutionPolicy Bypass -File scripts\release\Build-UserRelease.ps1 -Version 1.1.0
+  powershell -ExecutionPolicy Bypass -File scripts\release\Build-UserRelease.ps1
+-Version defaults to <Version> in Directory.Build.props.
 #>
 param(
-    [string] $Version = "1.1.0",
+    [string] $Version = "",
     [string] $RepoRoot = (Resolve-Path (Join-Path $PSScriptRoot "..\..")).Path,
     [string] $CertificatePfx = (Join-Path $PSScriptRoot "..\..\artifacts\certs\FolderManaging-Release.pfx"),
     [string] $CertificatePassword = $env:FM_RELEASE_CERT_PASSWORD,
@@ -25,6 +29,10 @@ param(
 $ErrorActionPreference = "Stop"
 $ProgressPreference = "SilentlyContinue"
 
+if (-not $Version) {
+    [xml] $buildProps = Get-Content -LiteralPath (Join-Path $RepoRoot "Directory.Build.props") -Raw -Encoding UTF8
+    $Version = @($buildProps.Project.PropertyGroup | ForEach-Object { $_.Version } | Where-Object { $_ })[0]
+}
 if ($Version -notmatch '^\d+\.\d+\.\d+$') { throw "Version must look like 1.2.3 (got '$Version')." }
 $packageVersion = "$Version.0"
 $certSubject = "CN=Folder Managing"
@@ -119,10 +127,13 @@ Invoke-Checked "Publish Shell" { dotnet publish (Join-Path $RepoRoot "src\Folder
 Invoke-Checked "Publish CLI" { dotnet publish (Join-Path $RepoRoot "src\FolderManaging.Cli\FolderManaging.Cli.csproj") @publishProps -r win-x64 --self-contained false -o $layout }
 Invoke-Checked "Publish Companion" { dotnet publish (Join-Path $RepoRoot "src\FolderManaging.Companion\FolderManaging.Companion.csproj") @publishProps -r win-x64 --self-contained false -o $layout }
 Get-ChildItem -LiteralPath $layout -Filter *.pdb | Remove-Item -Force
+# Companion publish copies these via the csproj; keep an explicit copy so About always finds them.
+Copy-Item -LiteralPath (Join-Path $RepoRoot "LICENSE") -Destination (Join-Path $layout "LICENSE.txt") -Force
+Copy-Item -LiteralPath (Join-Path $RepoRoot "THIRD-PARTY-NOTICES.md") -Destination (Join-Path $layout "THIRD-PARTY-NOTICES.txt") -Force
 
 # --- Package ---
 Write-Host "==> Manifest $packageVersion"
-[xml] $manifest = Get-Content -LiteralPath (Join-Path $RepoRoot "sparse\AppxManifest.User.xml") -Raw
+[xml] $manifest = Get-Content -LiteralPath (Join-Path $RepoRoot "sparse\AppxManifest.User.xml") -Raw -Encoding UTF8
 $manifest.Package.Identity.Version = $packageVersion
 $manifest.Save((Join-Path $layout "AppxManifest.xml"))
 

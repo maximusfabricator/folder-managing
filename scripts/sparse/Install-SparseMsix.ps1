@@ -1,3 +1,6 @@
+# SPDX-License-Identifier: GPL-2.0-only
+# Copyright (C) 2026 maximusfabricator
+
 <#
 .SYNOPSIS
 Installs (or updates) the signed dev MSIX produced by Build-SparseMsix.ps1.

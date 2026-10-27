@@ -1,692 +1,247 @@
+// SPDX-License-Identifier: GPL-2.0-only
+// Copyright (C) 2026 maximusfabricator
+
+using System.Collections.Concurrent;
 using System.Globalization;
 using System.Runtime.InteropServices;
+using System.Text.Json;
+using FolderManaging.Core.Storage;
 
 namespace FolderManaging.Core.Localization;
 
+/// <summary>A UI language the app ships strings for.</summary>
+/// <param name="Code">Culture name; also the name of the embedded <c>Localization\Strings\{Code}.json</c> table.</param>
+/// <param name="NativeName">How speakers of the language write its name (shown in the language picker).</param>
+public sealed record UiLanguage(string Code, string NativeName, bool IsRightToLeft = false);
+
 /// <summary>
-/// UI language follows Windows: Russian, English, Norwegian Bokmål. Anything else uses English.
+/// UI strings. The language is the one picked in Settings (<c>language</c> in <c>state.json</c>), otherwise the first
+/// Windows display language we have strings for, otherwise English. <c>en.json</c> has every key; a key missing from
+/// another table falls back to English.
 /// </summary>
 public static class UiText
 {
     public const string English = "en";
-    public const string Russian = "ru";
-    public const string Norwegian = "nb";
 
-    static readonly Dictionary<string, Dictionary<string, string>> Tables = Build();
+    public static IReadOnlyList<UiLanguage> Languages { get; } =
+    [
+        new("en", "English"),
+        new("zh-Hans", "中文（简体）"),
+        new("zh-Hant", "中文（繁體）"),
+        new("hi", "हिन्दी"),
+        new("es", "Español"),
+        new("fr", "Français"),
+        new("ar", "العربية", IsRightToLeft: true),
+        new("bn", "বাংলা"),
+        new("pt-BR", "Português (Brasil)"),
+        new("ru", "Русский"),
+        new("ur", "اردو", IsRightToLeft: true),
+        new("id", "Bahasa Indonesia"),
+        new("de", "Deutsch"),
+        new("ja", "日本語"),
+        new("tr", "Türkçe"),
+        new("ko", "한국어"),
+        new("vi", "Tiếng Việt"),
+        new("it", "Italiano"),
+        new("fa", "فارسی", IsRightToLeft: true),
+        new("pl", "Polski"),
+        new("uk", "Українська"),
+        new("th", "ไทย"),
+        new("nl", "Nederlands"),
+        new("nb", "Norsk bokmål"),
+    ];
 
-    [DllImport("kernel32.dll")]
-    static extern ushort GetUserDefaultUILanguage();
+    static readonly ConcurrentDictionary<string, IReadOnlyDictionary<string, string>> Tables =
+        new(StringComparer.OrdinalIgnoreCase);
+
+    static volatile UiLanguage _current = Languages[0];
+
+    public static UiLanguage Current => _current;
+
+    public static bool IsRightToLeft => _current.IsRightToLeft;
+
+    /// <summary>Culture of <see cref="Current"/>, for number and date formatting.</summary>
+    public static CultureInfo Culture => GetCulture(_current.Code);
+
+    /// <summary>The language "Match Windows" resolves to right now.</summary>
+    public static UiLanguage WindowsLanguage => Find(ResolveFromWindows());
+
+    /// <summary>Uses the language saved in <c>state.json</c>, otherwise the Windows display language.</summary>
+    public static void ApplyToProcess() => Use(ReadSavedPreference());
 
     /// <summary>
-    /// Follows the Windows display language (not the host process UI culture).
-    /// Russian, English, and Norwegian are used as-is. Any other language is English.
+    /// Switches the process to <paramref name="preference"/> (a <see cref="UiLanguage.Code"/>);
+    /// null or empty follows Windows.
     /// </summary>
-    public static void ApplyToProcess()
+    public static void Use(string? preference)
     {
-        CultureInfo display;
-        try
-        {
-            display = new CultureInfo(GetUserDefaultUILanguage());
-        }
-        catch (CultureNotFoundException)
-        {
-            display = CultureInfo.CurrentUICulture;
-        }
-
-        var culture = new CultureInfo(ResolveLanguage(display));
+#if FM_DEV
+        // Developer builds: FM_UI_LANGUAGE shows a language without touching state.json (UI tours, screenshots).
+        if (Environment.GetEnvironmentVariable("FM_UI_LANGUAGE") is { Length: > 0 } forced)
+            preference = forced;
+#endif
+        var language = Find(string.IsNullOrWhiteSpace(preference) ? ResolveFromWindows() : ResolveLanguage(preference));
+        _current = language;
+        var culture = GetCulture(language.Code);
         CultureInfo.DefaultThreadCurrentUICulture = culture;
         Thread.CurrentThread.CurrentUICulture = culture;
     }
 
-    /// <summary><c>en</c>, <c>ru</c>, or <c>nb</c>.</summary>
-    public static string ResolveLanguage(CultureInfo ui)
+    public static UiLanguage Find(string code) =>
+        Languages.FirstOrDefault(l => string.Equals(l.Code, code, StringComparison.OrdinalIgnoreCase)) ?? Languages[0];
+
+    /// <summary>Maps any culture name (<c>pt-PT</c>, <c>zh-TW</c>, <c>nn-NO</c>…) to a <see cref="UiLanguage.Code"/>.</summary>
+    public static string ResolveLanguage(string? name) => TryResolve(name) ?? English;
+
+    public static string ResolveLanguage(CultureInfo ui) => TryResolve(ui) ?? English;
+
+    public static string Get(string key)
     {
-        for (var culture = ui; culture is not null && !string.IsNullOrEmpty(culture.Name); culture = culture.Parent)
+        if (Strings(_current.Code).TryGetValue(key, out var value))
+            return value;
+        return Strings(English).TryGetValue(key, out var fallback) ? fallback : key;
+    }
+
+    public static string Format(string key, params object[] args) =>
+        string.Format(Culture, Get(key), args);
+
+    /// <summary>
+    /// A path for a message, kept in one left-to-right piece. Right-to-left text otherwise moves its ends:
+    /// "C:\Program Files (x86)" would show as "(C:\Program Files (x86".
+    /// </summary>
+    public static string LeftToRight(string value) => IsRightToLeft ? "\u202A" + value + "\u202C" : value;
+
+    /// <summary>The embedded table for <paramref name="code"/> as shipped (empty when there is none).</summary>
+    public static IReadOnlyDictionary<string, string> Strings(string code) => Tables.GetOrAdd(code, Load);
+
+    static string? TryResolve(string? name)
+    {
+        if (string.IsNullOrWhiteSpace(name))
+            return null;
+        var exact = Languages.FirstOrDefault(l => string.Equals(l.Code, name, StringComparison.OrdinalIgnoreCase));
+        if (exact is not null)
+            return exact.Code;
+        try
         {
-            var name = culture.Name;
-            if (name.StartsWith("ru", StringComparison.OrdinalIgnoreCase))
-                return Russian;
-            if (name.Equals("no", StringComparison.OrdinalIgnoreCase)
-                || name.StartsWith("nb", StringComparison.OrdinalIgnoreCase)
-                || name.StartsWith("nn", StringComparison.OrdinalIgnoreCase))
-                return Norwegian;
-            if (name.StartsWith("en", StringComparison.OrdinalIgnoreCase))
-                return English;
+            return TryResolve(CultureInfo.GetCultureInfo(name));
+        }
+        catch (CultureNotFoundException)
+        {
+            return null;
+        }
+    }
+
+    static string? TryResolve(CultureInfo ui)
+    {
+        for (var culture = ui; !string.IsNullOrEmpty(culture.Name); culture = culture.Parent)
+        {
+            var exact = Languages.FirstOrDefault(l => string.Equals(l.Code, culture.Name, StringComparison.OrdinalIgnoreCase));
+            if (exact is not null)
+                return exact.Code;
+        }
+
+        var iso = ui.TwoLetterISOLanguageName;
+        if (iso is "no" or "nn")
+            return "nb";
+        return Languages.FirstOrDefault(l =>
+            string.Equals(l.Code.Split('-')[0], iso, StringComparison.OrdinalIgnoreCase))?.Code;
+    }
+
+    /// <summary>First language in the Windows display-language list that we ship; Kazakh-then-Russian gets Russian.</summary>
+    static string ResolveFromWindows()
+    {
+        foreach (var name in WindowsDisplayLanguages())
+        {
+            if (TryResolve(name) is { } code)
+                return code;
         }
 
         return English;
     }
 
-    public static string Get(string key)
+    static IEnumerable<string> WindowsDisplayLanguages()
     {
-        var lang = ResolveLanguage(CultureInfo.CurrentUICulture);
-        if (Tables.TryGetValue(lang, out var table) && table.TryGetValue(key, out var value))
-            return value;
-        return Tables[English][key];
+        uint count = 0, length = 0;
+        if (GetUserPreferredUILanguages(MuiLanguageName, out count, null, ref length) && length > 0)
+        {
+            var buffer = new char[length];
+            if (GetUserPreferredUILanguages(MuiLanguageName, out count, buffer, ref length))
+            {
+                foreach (var name in new string(buffer).Split('\0', StringSplitOptions.RemoveEmptyEntries))
+                    yield return name;
+            }
+        }
+
+        string? fallback = null;
+        try
+        {
+            fallback = new CultureInfo(GetUserDefaultUILanguage()).Name;
+        }
+        catch (CultureNotFoundException)
+        {
+        }
+
+        yield return fallback ?? CultureInfo.CurrentUICulture.Name;
     }
 
-    public static string Format(string key, params object[] args) =>
-        string.Format(CultureInfo.CurrentUICulture, Get(key), args);
-
-    static Dictionary<string, Dictionary<string, string>> Build()
+    static string? ReadSavedPreference()
     {
-        var en = new Dictionary<string, string>(StringComparer.Ordinal)
+        try
         {
-            ["NavColors"] = "Folder colors",
-            ["NavTags"] = "Tags",
-            ["NavFolders"] = "Manage folders",
-            ["NavMenu"] = "Context menu",
-            ["NavSettings"] = "Settings",
-            ["NavQuickColor"] = "Quick color…",
-            ["NavLogs"] = "Open logs…",
-            ["NavErrorLog"] = "Error log…",
-            ["NavResetIcon"] = "Reset folder icon…",
-            ["ColorsTitle"] = "Folder colors",
-            ["ColorsHint"] = "Presets for the Explorer menu. Rainbow order: in the parent folder, Sort → “Folder color” (or Tags) ascending.",
-            ["AddColor"] = "Add color",
-            ["NameOptional"] = "Name (optional)",
-            ["Edit"] = "Edit",
-            ["ColorEditor"] = "Color editor",
-            ["Cancel"] = "Cancel",
-            ["Save"] = "Save",
-            ["ColorsFooter"] = "Changes are saved to %USERPROFILE%\\.FolderManaging\\state.json. Submenu icons update immediately.",
-            ["TagsTitle"] = "Tags",
-            ["TagsHint"] = "Text tags for “Tag — …” in Explorer. Each tag has a color: it is drawn as a small badge on the folder .ico. Group/sort: Group by → “Folder tags”. Several tags → the first tag’s color is on the icon.",
-            ["NewTagPlaceholder"] = "New tag (name)",
-            ["Add"] = "Add",
-            ["MenuName"] = "Menu label",
-            ["TagsFooter"] = "The tag id is set when you create it. Rename the label shown in the context menu.",
-            ["FoldersTitle"] = "Manage folders",
-            ["FoldersHint"] = "Folders with a color, tags, or a Quick access pin. Actions are saved and update Explorer.",
-            ["ColPath"] = "Path",
-            ["ColColor"] = "Color",
-            ["ColTags"] = "Tags",
-            ["ColPinned"] = "Pinned",
-            ["ColActions"] = "Actions",
-            ["UnpinButton"] = "Unpin",
-            ["ClearTags"] = "Clear tags",
-            ["ClearColor"] = "Clear color",
-            ["FoldersEmpty"] = "No configured folders yet. Apply a color, tag, or pin from the Explorer context menu.",
-            ["Yes"] = "Yes",
-            ["No"] = "No",
-            ["SettingsTitle"] = "Settings",
-            ["SettingsHint"] = "How Folder Managing behaves in Explorer and in Companion.",
-            ["Appearance"] = "Appearance",
-            ["AppearanceHint"] = "Light or dark, in the Windows 11 style. “Match system” follows Windows.",
-            ["ThemeSystem"] = "Match system",
-            ["ThemeLight"] = "Light",
-            ["ThemeDark"] = "Dark",
-            ["Autostart"] = "Start with Windows",
-            ["AutostartHint"] = "The Folder Managing icon appears in the tray after sign-in. Double-click it to color a folder quickly.",
-            ["Off"] = "Off",
-            ["On"] = "On",
-            ["AdminRights"] = "Administrator rights for system folders",
-            ["AdminRightsHint"] = "Turn this on once and confirm the Windows (UAC) prompt. After that, color and reset on Program Files and similar folders do not ask again while the service is running.",
-            ["StatusPending"] = "Status: …",
-            ["StartAdminService"] = "Start administrator service…",
-            ["ContextMenuCard"] = "Context menu",
-            ["ContextMenuCardHint"] = "Order, visibility, and names of “Folder Manager” items are on the Context menu page.",
-            ["ConfigureMenu"] = "Configure menu…",
-            ["ResetSettingsCard"] = "Reset settings",
-            ["ResetSettingsHint"] = "Restores the context menu and all options to defaults. Your colors, tags, and colored folders stay.",
-            ["ResetSettings"] = "Reset settings",
-            ["MenuPageTitle"] = "Context menu",
-            ["MenuPageHint"] = "Build the right-click menu: show or hide items, reorder them, rename them, add separators. Changes apply immediately — right-click a folder again.",
-            ["ItemLabel"] = "Menu item name",
-            ["ItemLabelHint"] = "What you see right after the right-click.",
-            ["Preview"] = "Preview",
-            ["AddSeparator"] = "Add separator",
-            ["ResetMenu"] = "Reset menu to default",
-            ["QuickTitle"] = "Quick color",
-            ["QuickHint"] = "Pick a point on the color, choose a folder, and click Color — no presets or settings.",
-            ["Folder"] = "Folder",
-            ["FolderNotSelected"] = "No folder selected",
-            ["Browse"] = "Browse…",
-            ["Paint"] = "Color",
-            ["SetupInstallTitle"] = "Install Folder Managing",
-            ["SetupUninstallTitle"] = "Uninstall Folder Managing",
-            ["SetupBlurb"] = "Folder colors, tags, and a “Folder Manager” item in the Explorer right-click menu.",
-            ["SetupAutostart"] = "Start in the tray with Windows",
-            ["SetupDesktop"] = "Desktop shortcut",
-            ["SetupRestart"] = "Restart Explorer (folder windows will close)",
-            ["SetupLaunch"] = "Open Folder Managing after install",
-            ["SetupAdminNote"] = "Windows will ask for administrator rights once: to trust the Folder Managing signature and, if needed, install .NET 8.",
-            ["UninstallBlurb"] = "Folder Managing and the “Folder Manager” item will be removed from this PC.",
-            ["UninstallReset"] = "Delete desktop.ini on colored folders (restore the default icon)",
-            ["UninstallApp"] = "Uninstall Folder Managing",
-            ["UninstallAppHint"] = "Opens the uninstaller. You choose whether colored folders lose their desktop.ini.",
-            ["UninstallMissing"] = "The uninstaller was not found. Open Settings → Apps → Folder Managing → Uninstall.",
-            ["UninstallDeleteData"] = "Delete my settings, colors, and tags",
-            ["Install"] = "Install",
-            ["Uninstall"] = "Uninstall",
-            ["Reinstall"] = "Reinstall",
-            ["Update"] = "Update",
-            ["Close"] = "Close",
-            ["Done"] = "Done",
-            ["Removed"] = "Removed",
-            ["RemovedBody"] = "Folder Managing has been removed from this PC.",
-            ["NotFinished"] = "Not finished",
-            ["Error"] = "Error",
-            ["VersionLine"] = "Version {0}",
-            ["AlreadyInstalled"] = "This version is already installed — you can reinstall it.",
-            ["WillUpdate"] = "Version {0} is installed and will be updated.",
-            ["NeedAdminInstall"] = "Without administrator rights Windows will not install the Explorer menu. Run setup again and click Yes.",
-            ["NeedAdminUninstall"] = "Without administrator rights uninstall stopped. Run it again and click Yes.",
-            ["DetailsLog"] = "Details: {0}",
-            ["Win10Note"] = "Folder Managing is made for Windows 11. On Windows 10 the menu item may not appear.",
-            ["InstalledBody"] = "Folder Managing is installed. Right-click any folder → “Folder Manager”.",
-            ["ShortcutDescription"] = "Folder colors, tags, and the “Folder Manager” menu",
-            ["ColumnName"] = "Folder color",
-            ["TagColumnName"] = "Folder tags",
-            ["SortInfoTip"] = "Folder Managing color · sort: Sort → “Folder color” (or Tags), ascending",
-            ["ColorSortTip"] = "Folder color is set.\n\nTo line up colored folders in rainbow order:\n1. Open the parent folder\n2. Sort → More… → “Folder color”\n   (fallback: Tags, shown as “282 · purple”)\n3. Sort → Folder color → Ascending\n\nOnly the colored folder is updated. This message will not show again.",
-            ["Pin"] = "📌 Pin folder",
-            ["Unpin"] = "📌 Unpin folder",
-            ["TagLine"] = "🏷️ Tag — {0}",
-            ["ColorLine"] = "🎨 Color — {0}",
-            ["ColorHex"] = "🎨 Color #{0}",
-            ["ColorPlain"] = "🎨 Color",
-            ["KindPin"] = "Pin / unpin in Quick access",
-            ["KindQuick"] = "Color wheel (window)",
-            ["KindPresets"] = "My colors (presets)",
-            ["KindPalette"] = "System palette (13 colors)",
-            ["KindReset"] = "Reset folder icon",
-            ["KindTags"] = "Tags",
-            ["KindSettings"] = "Open settings",
-            ["KindSeparator"] = "── Separator ──",
-            ["LabelQuick"] = "🎨 Quick color…",
-            ["LabelReset"] = "↩ Restore default folder icon",
-            ["LabelSettings"] = "⚙️ Folder Manager settings",
-            ["PalRed"] = "Red", ["PalOrange"] = "Orange", ["PalYellow"] = "Yellow", ["PalLime"] = "Lime",
-            ["PalGreen"] = "Green", ["PalTeal"] = "Teal", ["PalCyan"] = "Cyan", ["PalBlue"] = "Blue",
-            ["PalIndigo"] = "Indigo", ["PalPurple"] = "Purple", ["PalPink"] = "Pink", ["PalBrown"] = "Brown", ["PalGray"] = "Gray",
-            ["DeleteColor"] = "Delete color",
-            ["DeleteTag"] = "Delete tag",
-            ["MenuWin11Note"] = "Windows 11 cannot draw real separators inside a submenu — it shows a disabled row “────────” instead. The app has one menu item: if there are two or more, Windows groups them under “Folder Managing”.",
-            ["OpenLogsFail"] = "Could not open the log folder:\n{0}\n\n{1}",
-            ["PickResetFolder"] = "Choose the folder whose icon should be reset (desktop.ini).",
-            ["IconResetOk"] = "The usual yellow icon appears after you refresh the Explorer window (F5).",
-            ["IconResetFail"] = "Could not reset the icon (administrator rights are required):\n{0}\n\n{1}",
-            ["UacProtected"] = "Windows protects this folder, so it cannot be changed without administrator rights:\n{0}\n\nTry again with administrator rights?\n\n(You can turn automatic elevation on in Folder Managing settings.)",
-            ["ResetUac"] = "Windows protects this folder:\n{0}\n\nReset the icon again with administrator rights?",
-            ["UacOnce"] = "Confirm the administrator prompt in Windows once. After that it will not ask again while the setting is on.",
-            ["UacFail"] = "Administrator rights did not work.\n{0}\n\nDetails are in the log (Settings → Open logs).",
-            ["ChangeFolderFail"] = "Could not change the folder:\n{0}\n\n{1}\n\nDetails are in the log (Settings → Open logs).",
-            ["AutostartFail"] = "Could not change startup:\n{0}",
-            ["AdminExplain"] = "To change system folders without a prompt every time, confirm administrator rights (UAC) once.\n\n",
-            ["ServiceStartFail"] = "Could not start the service. Confirm the Windows (UAC) window if it appears.\n{0}",
-            ["ResetConfirmBody"] = "Restore all settings to the defaults?\n\n• Context menu — back to the original\n• Theme — match system\n• Administrator rights for system folders — on\n\nYour colors, tags, and colored folders stay.",
-            ["ResetDoneBody"] = "Done. The new menu appears the next time you right-click a folder.",
-            ["StatusAdminOn"] = "Status: the administrator service is running — system folders can be changed without another UAC prompt.",
-            ["StatusAdminOff"] = "Status: the administrator service is not running. Turn the switch on (or use the button below) and confirm UAC once.",
-            ["SeparatorsFull"] = "There is already a separator between every block.\nMove an existing one with the arrows, or delete an extra one.",
-            ["ResetMenuConfirm"] = "Restore the context menu to the default layout?",
-            ["ShowInMenu"] = "Show in the menu",
-            ["CustomLabelEmpty"] = "Custom name (empty = default)",
-            ["MoveUp"] = "Up",
-            ["MoveDown"] = "Down",
-            ["DeleteSeparator"] = "Delete separator",
-            ["NotePin"] = "Shows the one that applies: Pin or Unpin.",
-            ["NoteQuick"] = "Opens the color wheel — any color.",
-            ["NotePresetsEmpty"] = "There are no colors yet — nothing will appear in the menu. Add some on the Folder colors page.",
-            ["NotePresetsCount"] = "Now: {0} — each on its own row.",
-            ["NotePalette"] = "Red, Orange, Yellow, … Gray — a fixed set, 13 rows.",
-            ["NoteReset"] = "Restores the usual yellow icon.",
-            ["NoteTagsEmpty"] = "There are no tags yet — nothing will appear in the menu.",
-            ["NoteTagsCount"] = "Now: {0} — each on its own row.",
-            ["NoteSettings"] = "Opens this app.",
-            ["NoteSeparator"] = "In the menu this is a disabled “────────” row with no icon. Explorer hides it at the end of the list — put it between blocks.",
-            ["MenuEmpty"] = "The menu is empty — turn on at least one item.",
-            ["MenuLineCount"] = "Rows in the menu: {0} (plus separator lines).",
-            ["TrayPaint"] = "Color a folder…",
-            ["TraySettings"] = "Open settings",
-            ["TrayExit"] = "Exit",
-            ["PickPaintFolder"] = "Choose the folder to color",
-            ["PaintFail"] = "Could not color the folder:\n{0}",
-            ["Painting"] = "Coloring…",
-            ["BuiltInColor"] = "A built-in color cannot be deleted — edit it, or hide it later in the menu settings.",
-            ["ColorNamed"] = "Color — {0}",
-            ["UnpackFiles"] = "Extracting files…",
-            ["PrepareWindows"] = "Preparing Windows (confirm the administrator prompt)…",
-            ["PrepareDotnet"] = "Installing .NET 8 and preparing Windows (confirm the administrator prompt, about 1–2 minutes)…",
-            ["InstallingApp"] = "Installing Folder Managing…",
-            ["ShortcutsAutostart"] = "Shortcuts and startup…",
-            ["RestartingExplorer"] = "Restarting Explorer…",
-            ["AutoOpenFail"] = "Could not open Folder Managing automatically — start it from the Start menu.",
-            ["AdminStepCode"] = "The administrator step finished with code {0}.",
-            ["ClosingApp"] = "Closing Folder Managing…",
-            ["RestoringIcons"] = "Restoring the default folder icons…",
-            ["RemovingPackage"] = "Removing the package…",
-            ["RemovingSystemSettings"] = "Removing system settings (confirm the administrator prompt)…",
-            ["FolderNotReset"] = "Folder was not reset: {0}",
-            ["AdminLeftColumn"] = "Without administrator rights the certificate and the “Folder color” column remain: {0}",
-            ["RemovingShortcuts"] = "Removing shortcuts…",
-            ["PayloadBroken"] = "The installer is damaged: the embedded files are missing.",
-            ["ColumnRegisterFail"] = "The “Folder color” sort column was not registered: {0}",
-            ["MissingDotnet"] = "The installer does not contain the .NET Desktop Runtime.",
-            ["DotnetStartFail"] = "Could not start the .NET Desktop Runtime installer.",
-            ["DotnetExitCode"] = "The .NET Desktop Runtime installer finished with code {0}.",
-            ["PowershellStartFail"] = "Could not start PowerShell.",
-            ["PowershellExit"] = "PowerShell finished with code {0}.",
-            ["InstallerPathMissing"] = "Could not find the installer path.",
-            ["AdminStepStartFail"] = "Could not start the administrator step.",
-            ["AdminDenied"] = "The administrator prompt was declined.",
-            ["LogReadme"] = "Main click log (lines [CLICK ….]):\r\n{0}\r\n\r\nDetailed COM / dllhost trace:\r\n{1}\r\n\r\nLook for: [CLICK id] START … RESULT=OK or RESULT=FAIL\r\n",
-        };
-
-        var ru = new Dictionary<string, string>(en, StringComparer.Ordinal)
+            var path = AppPaths.StateFilePath;
+            if (!File.Exists(path))
+                return null;
+            using var stream = File.Open(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete);
+            using var json = JsonDocument.Parse(stream, new JsonDocumentOptions
+            {
+                AllowTrailingCommas = true,
+                CommentHandling = JsonCommentHandling.Skip,
+            });
+            return json.RootElement.ValueKind == JsonValueKind.Object
+                   && json.RootElement.TryGetProperty("language", out var value)
+                   && value.ValueKind == JsonValueKind.String
+                ? value.GetString()
+                : null;
+        }
+        catch (Exception)
         {
-            ["NavColors"] = "Цвета папок",
-            ["NavTags"] = "Метки",
-            ["NavFolders"] = "Управление папками",
-            ["NavMenu"] = "Контекстное меню",
-            ["NavSettings"] = "Настройки",
-            ["NavQuickColor"] = "Быстрая покраска…",
-            ["NavLogs"] = "Открыть логи…",
-            ["NavErrorLog"] = "Журнал ошибок…",
-            ["NavResetIcon"] = "Сброс значка папки…",
-            ["ColorsTitle"] = "Цвета папок",
-            ["ColorsHint"] = "Пресеты для меню Проводника. Сортировка по радуге: в родительской папке Сортировать → «Цвет папки» (или «Теги») по возрастанию.",
-            ["AddColor"] = "Добавить цвет",
-            ["NameOptional"] = "Название (необязательно)",
-            ["Edit"] = "Изменить",
-            ["ColorEditor"] = "Редактор цвета",
-            ["Cancel"] = "Отмена",
-            ["Save"] = "Сохранить",
-            ["ColorsFooter"] = "Изменения сохраняются в %USERPROFILE%\\.FolderManaging\\state.json. Иконки в подменю обновляются сразу.",
-            ["TagsTitle"] = "Метки",
-            ["TagsHint"] = "Текстовые метки для пунктов «Метка — …» в Проводнике. У каждой метки свой цвет — маленький бейдж на .ico папки. Группировка: Группировать по → «Метки папки». Несколько меток — на иконке цвет первой.",
-            ["NewTagPlaceholder"] = "Новая метка (название)",
-            ["Add"] = "Добавить",
-            ["MenuName"] = "Название в меню",
-            ["TagsFooter"] = "Идентификатор метки (Id) задаётся при создании; переименуйте подпись для контекстного меню.",
-            ["FoldersTitle"] = "Управление папками",
-            ["FoldersHint"] = "Папки с цветом, метками или закреплением в «Быстром доступе». Действия сохраняются в state.json и обновляют Проводник.",
-            ["ColPath"] = "Путь",
-            ["ColColor"] = "Цвет",
-            ["ColTags"] = "Метки",
-            ["ColPinned"] = "Закреплена",
-            ["ColActions"] = "Действия",
-            ["UnpinButton"] = "Открепить",
-            ["ClearTags"] = "Сбросить метки",
-            ["ClearColor"] = "Сбросить цвет",
-            ["FoldersEmpty"] = "Пока нет настроенных папок. Примените цвет, метку или закрепление через контекстное меню Проводника.",
-            ["Yes"] = "Да",
-            ["No"] = "Нет",
-            ["SettingsTitle"] = "Настройки",
-            ["SettingsHint"] = "Параметры поведения Folder Managing в Проводнике и Companion.",
-            ["Appearance"] = "Оформление",
-            ["AppearanceHint"] = "Светлая или тёмная тема в стиле Windows 11. «Как в системе» — следует за настройками Windows.",
-            ["ThemeSystem"] = "Как в системе",
-            ["ThemeLight"] = "Светлая",
-            ["ThemeDark"] = "Тёмная",
-            ["Autostart"] = "Запускать вместе с Windows",
-            ["AutostartHint"] = "Значок Folder Managing появится в трее после входа в систему: двойной клик — быстрая покраска папки.",
-            ["Off"] = "Выкл",
-            ["On"] = "Вкл",
-            ["AdminRights"] = "Права администратора для системных папок",
-            ["AdminRightsHint"] = "Включите один раз и подтвердите окно Windows (UAC). После этого покраска и сброс на Program Files и подобных папках идут без повторных вопросов, пока служба работает.",
-            ["StatusPending"] = "Статус: …",
-            ["StartAdminService"] = "Запустить службу администратора…",
-            ["ContextMenuCard"] = "Контекстное меню",
-            ["ContextMenuCardHint"] = "Порядок, видимость и названия пунктов «Folder Manager» — на странице «Контекстное меню».",
-            ["ConfigureMenu"] = "Настроить меню…",
-            ["ResetSettingsCard"] = "Сброс настроек",
-            ["ResetSettingsHint"] = "Возвращает контекстное меню и все параметры к стандартным. Твои цвета, метки и покрашенные папки не трогаются.",
-            ["ResetSettings"] = "Сбросить настройки",
-            ["MenuPageTitle"] = "Контекстное меню",
-            ["MenuPageHint"] = "Собери меню правого клика под себя: включай и выключай пункты, меняй порядок стрелками, переименовывай, добавляй разделители. Изменения применяются сразу — просто кликни правой кнопкой по папке ещё раз.",
-            ["ItemLabel"] = "Название пункта в меню",
-            ["ItemLabelHint"] = "То, что видно сразу после правого клика.",
-            ["Preview"] = "Предпросмотр",
-            ["AddSeparator"] = "Добавить разделитель",
-            ["ResetMenu"] = "Сбросить меню к стандартному",
-            ["QuickTitle"] = "Быстрая покраска",
-            ["QuickHint"] = "Поставь точку на нужный цвет, выбери папку и нажми «Покрасить» — без пресетов и настроек.",
-            ["Folder"] = "Папка",
-            ["FolderNotSelected"] = "Папка не выбрана",
-            ["Browse"] = "Выбрать…",
-            ["Paint"] = "Покрасить",
-            ["SetupInstallTitle"] = "Установка Folder Managing",
-            ["SetupUninstallTitle"] = "Удаление Folder Managing",
-            ["SetupBlurb"] = "Цвета для папок, метки и пункт «Folder Manager» в меню правой кнопки мыши в Проводнике.",
-            ["SetupAutostart"] = "Запускать в трее вместе с Windows",
-            ["SetupDesktop"] = "Ярлык на рабочем столе",
-            ["SetupRestart"] = "Перезапустить Проводник (окна папок закроются)",
-            ["SetupLaunch"] = "Открыть Folder Managing после установки",
-            ["SetupAdminNote"] = "Windows один раз попросит права администратора: чтобы доверять подписи Folder Managing и при необходимости установить .NET 8.",
-            ["UninstallBlurb"] = "Folder Managing и пункт «Folder Manager» будут удалены с этого компьютера.",
-            ["UninstallReset"] = "Удалить desktop.ini у покрашенных папок (вернуть обычный значок)",
-            ["UninstallApp"] = "Удалить Folder Managing",
-            ["UninstallAppHint"] = "Откроет удаление. Там можно выбрать, стирать ли desktop.ini у покрашенных папок.",
-            ["UninstallMissing"] = "Программа удаления не найдена. Откройте Параметры → Приложения → Folder Managing → Удалить.",
-            ["UninstallDeleteData"] = "Удалить мои настройки, цвета и метки",
-            ["Install"] = "Установить",
-            ["Uninstall"] = "Удалить",
-            ["Reinstall"] = "Переустановить",
-            ["Update"] = "Обновить",
-            ["Close"] = "Закрыть",
-            ["Done"] = "Готово",
-            ["Removed"] = "Удалено",
-            ["RemovedBody"] = "Folder Managing удалён с этого компьютера.",
-            ["NotFinished"] = "Не завершено",
-            ["Error"] = "Ошибка",
-            ["VersionLine"] = "Версия {0}",
-            ["AlreadyInstalled"] = "Эта версия уже установлена — можно переустановить.",
-            ["WillUpdate"] = "Установлена версия {0}, она будет обновлена.",
-            ["NeedAdminInstall"] = "Без прав администратора Windows не разрешит установить меню Проводника. Запустите установку ещё раз и нажмите «Да».",
-            ["NeedAdminUninstall"] = "Без прав администратора удаление прервано. Запустите его ещё раз и нажмите «Да».",
-            ["DetailsLog"] = "Подробности: {0}",
-            ["Win10Note"] = "Folder Managing сделан для Windows 11: в Windows 10 пункт меню может не появиться.",
-            ["InstalledBody"] = "Folder Managing установлен. Нажмите правой кнопкой мыши на любую папку → «Folder Manager».",
-            ["ShortcutDescription"] = "Цвета папок, метки и меню «Folder Manager»",
-            ["ColumnName"] = "Цвет папки",
-            ["TagColumnName"] = "Метки папки",
-            ["SortInfoTip"] = "Цвет Folder Managing · сортировка: Сортировать → «Цвет папки» (или «Теги») по возрастанию",
-            ["ColorSortTip"] = "Цвет папки задан.\n\nЧтобы выстроить по радуге среди цветных папок:\n1. Открой родительскую папку\n2. Сортировать → Дополнительно… → «Цвет папки»\n   (запасной вариант — «Теги»: «282 · purple»)\n3. Сортировать → Цвет папки → По возрастанию\n\nПишем hue только в покрашенную папку — соседей не трогаем.\nЭто сообщение больше не покажется.",
-            ["Pin"] = "📌 Закрепить",
-            ["Unpin"] = "📌 Открепить",
-            ["TagLine"] = "🏷️ Метка — {0}",
-            ["ColorLine"] = "🎨 Цвет — {0}",
-            ["ColorHex"] = "🎨 Цвет #{0}",
-            ["ColorPlain"] = "🎨 Цвет",
-            ["KindPin"] = "Закрепить / открепить в быстром доступе",
-            ["KindQuick"] = "Круг цветов (окно)",
-            ["KindPresets"] = "Мои цвета (пресеты)",
-            ["KindPalette"] = "Системная палитра (13 готовых цветов)",
-            ["KindReset"] = "Сбросить значок папки",
-            ["KindTags"] = "Метки",
-            ["KindSettings"] = "Открыть настройки",
-            ["KindSeparator"] = "── Разделитель ──",
-            ["LabelQuick"] = "🎨 Быстрый цвет…",
-            ["LabelReset"] = "↩ Вернуть обычный значок папки",
-            ["LabelSettings"] = "⚙️ Настройки Folder Manager",
-            ["PalRed"] = "Красный", ["PalOrange"] = "Оранжевый", ["PalYellow"] = "Жёлтый", ["PalLime"] = "Лайм",
-            ["PalGreen"] = "Зелёный", ["PalTeal"] = "Бирюзовый", ["PalCyan"] = "Голубой", ["PalBlue"] = "Синий",
-            ["PalIndigo"] = "Индиго", ["PalPurple"] = "Фиолетовый", ["PalPink"] = "Розовый", ["PalBrown"] = "Коричневый", ["PalGray"] = "Серый",
-            ["DeleteColor"] = "Удалить цвет",
-            ["DeleteTag"] = "Удалить метку",
-            ["MenuWin11Note"] = "Windows 11 в подменю не умеет настоящие разделители — вместо них ставится неактивная строка «────────». У приложения один пункт меню: если пунктов два и больше, Windows сама складывает их в группу «Folder Managing».",
-            ["OpenLogsFail"] = "Не удалось открыть папку логов:\n{0}\n\n{1}",
-            ["PickResetFolder"] = "Выберите папку, чтобы сбросить значок (desktop.ini).",
-            ["IconResetOk"] = "Стандартный жёлтый значок появится после обновления окна проводника (F5).",
-            ["IconResetFail"] = "Не удалось сбросить значок (нужны права администратора):\n{0}\n\n{1}",
-            ["UacProtected"] = "Windows защищает эту папку, поэтому изменить её без прав администратора нельзя:\n{0}\n\nПовторить с правами администратора?\n\n(Можно включить авто-права в Настройках Folder Managing.)",
-            ["ResetUac"] = "Windows защищает эту папку:\n{0}\n\nПовторить сброс с правами администратора?",
-            ["UacOnce"] = "Нужно один раз подтвердить права администратора в окне Windows. После этого вопросы больше не появятся, пока включена настройка.",
-            ["UacFail"] = "Не получилось с правами администратора.\n{0}\n\nПодробности в логе (Настройки → Открыть логи).",
-            ["ChangeFolderFail"] = "Не удалось изменить папку:\n{0}\n\n{1}\n\nПодробности в логе (Настройки → Открыть логи).",
-            ["AutostartFail"] = "Не удалось изменить автозапуск:\n{0}",
-            ["AdminExplain"] = "Чтобы работать с системными папками без вопроса каждый раз, нужно один раз подтвердить права администратора (UAC).\n\n",
-            ["ServiceStartFail"] = "Не удалось запустить службу. Подтвердите окно Windows (UAC), если оно появилось.\n{0}",
-            ["ResetConfirmBody"] = "Вернуть все настройки к стандартным?\n\n• Контекстное меню — как было изначально\n• Тема — как в системе\n• Права администратора для системных папок — включены\n\nЦвета, метки и покрашенные папки останутся.",
-            ["ResetDoneBody"] = "Готово. Новое меню появится при следующем правом клике по папке.",
-            ["StatusAdminOn"] = "Статус: служба администратора запущена — системные папки можно менять без повторного UAC.",
-            ["StatusAdminOff"] = "Статус: служба администратора не запущена. Включите переключатель (или кнопку ниже) и подтвердите UAC один раз.",
-            ["SeparatorsFull"] = "Между всеми блоками уже есть разделители.\nПередвинь существующий стрелками ↑↓ или удали лишний.",
-            ["ResetMenuConfirm"] = "Вернуть контекстное меню к стандартному виду?",
-            ["ShowInMenu"] = "Показывать в меню",
-            ["CustomLabelEmpty"] = "Своё название (пусто — стандартное)",
-            ["MoveUp"] = "Выше",
-            ["MoveDown"] = "Ниже",
-            ["DeleteSeparator"] = "Удалить разделитель",
-            ["NotePin"] = "Показывается нужный из двух: Pin или Unpin.",
-            ["NoteQuick"] = "Открывает окно с кругом — любой цвет точкой.",
-            ["NotePresetsEmpty"] = "Сейчас цветов нет — в меню ничего не появится. Добавь на странице «Цвета папок».",
-            ["NotePresetsCount"] = "Сейчас: {0} — каждый отдельной строкой.",
-            ["NotePalette"] = "Красный, оранжевый, жёлтый, … серый — фиксированный набор, 13 строк.",
-            ["NoteReset"] = "Возвращает обычный жёлтый значок.",
-            ["NoteTagsEmpty"] = "Сейчас меток нет — в меню ничего не появится.",
-            ["NoteTagsCount"] = "Сейчас: {0} — каждая отдельной строкой.",
-            ["NoteSettings"] = "Открывает это приложение.",
-            ["NoteSeparator"] = "В ПКМ — неактивная строка «────────» без иконки. В конце списка в Проводнике не видна — поставь её между блоками стрелками.",
-            ["MenuEmpty"] = "Меню пустое — включи хотя бы один пункт.",
-            ["MenuLineCount"] = "Строк в меню: {0} (+ линии-разделители).",
-            ["TrayPaint"] = "Покрасить папку…",
-            ["TraySettings"] = "Открыть настройки",
-            ["TrayExit"] = "Выход",
-            ["PickPaintFolder"] = "Выберите папку для покраски",
-            ["PaintFail"] = "Не удалось покрасить папку:\n{0}",
-            ["Painting"] = "Крашу…",
-            ["BuiltInColor"] = "Встроенный цвет нельзя удалить — измените его или скройте позже через настройки меню.",
-            ["ColorNamed"] = "Цвет — {0}",
-            ["UnpackFiles"] = "Распаковка файлов…",
-            ["PrepareWindows"] = "Подготовка Windows (подтвердите запрос администратора)…",
-            ["PrepareDotnet"] = "Установка .NET 8 и подготовка Windows (подтвердите запрос администратора, это займёт 1–2 минуты)…",
-            ["InstallingApp"] = "Установка Folder Managing…",
-            ["ShortcutsAutostart"] = "Ярлыки и автозапуск…",
-            ["RestartingExplorer"] = "Перезапуск Проводника…",
-            ["AutoOpenFail"] = "Не удалось открыть Folder Managing автоматически — запустите его из меню «Пуск».",
-            ["AdminStepCode"] = "Шаг администратора завершился с кодом {0}.",
-            ["ClosingApp"] = "Закрытие Folder Managing…",
-            ["RestoringIcons"] = "Возврат стандартных значков папкам…",
-            ["RemovingPackage"] = "Удаление пакета…",
-            ["RemovingSystemSettings"] = "Удаление системных настроек (подтвердите запрос администратора)…",
-            ["FolderNotReset"] = "Папка не сброшена: {0}",
-            ["AdminLeftColumn"] = "Без прав администратора остались сертификат и колонка «Цвет папки»: {0}",
-            ["RemovingShortcuts"] = "Удаление ярлыков…",
-            ["PayloadBroken"] = "Установщик повреждён: нет встроенных файлов.",
-            ["ColumnRegisterFail"] = "Колонка «Цвет папки» для сортировки не зарегистрирована: {0}",
-            ["MissingDotnet"] = "В установщике нет .NET Desktop Runtime.",
-            ["DotnetStartFail"] = "Не удалось запустить установку .NET Desktop Runtime.",
-            ["DotnetExitCode"] = "Установка .NET Desktop Runtime завершилась с кодом {0}.",
-            ["PowershellStartFail"] = "Не удалось запустить PowerShell.",
-            ["PowershellExit"] = "PowerShell завершился с кодом {0}.",
-            ["InstallerPathMissing"] = "Не найден путь к установщику.",
-            ["AdminStepStartFail"] = "Не удалось запустить шаг администратора.",
-            ["AdminDenied"] = "Запрос прав администратора отклонён.",
-            ["LogReadme"] = "Главный лог кликов (строки [CLICK ….]):\r\n{0}\r\n\r\nПодробный COM / dllhost трейс:\r\n{1}\r\n\r\nИщите: [CLICK id] START … RESULT=OK или RESULT=FAIL\r\n",
-        };
-
-        var nb = new Dictionary<string, string>(en, StringComparer.Ordinal)
-        {
-            ["NavColors"] = "Mappefarger",
-            ["NavTags"] = "Etiketter",
-            ["NavFolders"] = "Administrer mapper",
-            ["NavMenu"] = "Hurtigmeny",
-            ["NavSettings"] = "Innstillinger",
-            ["NavQuickColor"] = "Hurtigfarge…",
-            ["NavLogs"] = "Åpne logger…",
-            ["NavErrorLog"] = "Feillogg…",
-            ["NavResetIcon"] = "Tilbakestill mappeikon…",
-            ["ColorsTitle"] = "Mappefarger",
-            ["ColorsHint"] = "Forhåndsvalg for Utforsker-menyen. Regnbue: i den overordnede mappen, Sorter → «Mappefarge» (eller Etiketter) stigende.",
-            ["AddColor"] = "Legg til farge",
-            ["NameOptional"] = "Navn (valgfritt)",
-            ["Edit"] = "Endre",
-            ["ColorEditor"] = "Fargeredigering",
-            ["Cancel"] = "Avbryt",
-            ["Save"] = "Lagre",
-            ["ColorsFooter"] = "Endringer lagres i %USERPROFILE%\\.FolderManaging\\state.json. Ikoner i undermenyen oppdateres med en gang.",
-            ["TagsTitle"] = "Etiketter",
-            ["TagsHint"] = "Tekstetiketter for «Etikett — …» i Utforsker. Hver etikett har en farge som tegnes som et lite merke på mappe-.ico. Gruppering: Grupper etter → «Mappeetiketter». Flere etiketter → fargen til den første på ikonet.",
-            ["NewTagPlaceholder"] = "Ny etikett (navn)",
-            ["Add"] = "Legg til",
-            ["MenuName"] = "Navn i menyen",
-            ["TagsFooter"] = "Etikett-id settes når du oppretter den. Gi nytt navn til teksten som vises i menyen.",
-            ["FoldersTitle"] = "Administrer mapper",
-            ["FoldersHint"] = "Mapper med farge, etiketter eller festing i Hurtigtilgang. Handlinger lagres og oppdaterer Utforsker.",
-            ["ColPath"] = "Bane",
-            ["ColColor"] = "Farge",
-            ["ColTags"] = "Etiketter",
-            ["ColPinned"] = "Festet",
-            ["ColActions"] = "Handlinger",
-            ["UnpinButton"] = "Løsne",
-            ["ClearTags"] = "Fjern etiketter",
-            ["ClearColor"] = "Fjern farge",
-            ["FoldersEmpty"] = "Ingen mapper er satt opp ennå. Bruk farge, etikett eller festing fra hurtigmenyen i Utforsker.",
-            ["Yes"] = "Ja",
-            ["No"] = "Nei",
-            ["SettingsTitle"] = "Innstillinger",
-            ["SettingsHint"] = "Hvordan Folder Managing oppfører seg i Utforsker og i Companion.",
-            ["Appearance"] = "Utseende",
-            ["AppearanceHint"] = "Lys eller mørk, i Windows 11-stil. «Som systemet» følger Windows.",
-            ["ThemeSystem"] = "Som systemet",
-            ["ThemeLight"] = "Lys",
-            ["ThemeDark"] = "Mørk",
-            ["Autostart"] = "Start med Windows",
-            ["AutostartHint"] = "Ikonet vises i systemstatusfeltet etter pålogging. Dobbeltklikk for å farge en mappe raskt.",
-            ["Off"] = "Av",
-            ["On"] = "På",
-            ["AdminRights"] = "Administratorrettigheter for systemmapper",
-            ["AdminRightsHint"] = "Slå på én gang og bekreft Windows (UAC). Deretter kan du farge og tilbakestille mapper som Program Files uten nye spørsmål mens tjenesten kjører.",
-            ["StatusPending"] = "Status: …",
-            ["StartAdminService"] = "Start administrator-tjeneste…",
-            ["ContextMenuCard"] = "Hurtigmeny",
-            ["ContextMenuCardHint"] = "Rekkefølge, synlighet og navn på «Folder Manager» styres på siden Hurtigmeny.",
-            ["ConfigureMenu"] = "Tilpass meny…",
-            ["ResetSettingsCard"] = "Tilbakestill innstillinger",
-            ["ResetSettingsHint"] = "Setter menyen og alle valg tilbake til standard. Farger, etiketter og fargede mapper beholdes.",
-            ["ResetSettings"] = "Tilbakestill innstillinger",
-            ["MenuPageTitle"] = "Hurtigmeny",
-            ["MenuPageHint"] = "Bygg høyreklikkmenyen: vis eller skjul, endre rekkefølge, gi nytt navn, legg til skillelinjer. Endringen gjelder med en gang.",
-            ["ItemLabel"] = "Navn på menypunkt",
-            ["ItemLabelHint"] = "Det du ser rett etter høyreklikk.",
-            ["Preview"] = "Forhåndsvisning",
-            ["AddSeparator"] = "Legg til skillelinje",
-            ["ResetMenu"] = "Tilbakestill menyen",
-            ["QuickTitle"] = "Hurtigfarge",
-            ["QuickHint"] = "Velg et punkt på fargen, velg en mappe og trykk Farge — uten forhåndsvalg.",
-            ["Folder"] = "Mappe",
-            ["FolderNotSelected"] = "Ingen mappe valgt",
-            ["Browse"] = "Velg…",
-            ["Paint"] = "Farge",
-            ["SetupInstallTitle"] = "Installer Folder Managing",
-            ["SetupUninstallTitle"] = "Avinstaller Folder Managing",
-            ["SetupBlurb"] = "Mappefarger, etiketter og et «Folder Manager»-punkt i høyreklikkmenyen i Utforsker.",
-            ["SetupAutostart"] = "Start i systemstatusfeltet med Windows",
-            ["SetupDesktop"] = "Snarvei på skrivebordet",
-            ["SetupRestart"] = "Start Utforsker på nytt (mappevinduer lukkes)",
-            ["SetupLaunch"] = "Åpne Folder Managing etter installasjon",
-            ["SetupAdminNote"] = "Windows ber om administratorrettigheter én gang: for å stole på signaturen og, om nødvendig, installere .NET 8.",
-            ["UninstallBlurb"] = "Folder Managing og «Folder Manager» fjernes fra denne PC-en.",
-            ["UninstallReset"] = "Slett desktop.ini på fargede mapper (vanlig mappeikon tilbake)",
-            ["UninstallApp"] = "Avinstaller Folder Managing",
-            ["UninstallAppHint"] = "Åpner avinstalleringen. Der velger du om desktop.ini på fargede mapper skal slettes.",
-            ["UninstallMissing"] = "Avinstalleringen ble ikke funnet. Åpne Innstillinger → Apper → Folder Managing → Avinstaller.",
-            ["UninstallDeleteData"] = "Slett innstillinger, farger og etiketter",
-            ["Install"] = "Installer",
-            ["Uninstall"] = "Avinstaller",
-            ["Reinstall"] = "Installer på nytt",
-            ["Update"] = "Oppdater",
-            ["Close"] = "Lukk",
-            ["Done"] = "Ferdig",
-            ["Removed"] = "Fjernet",
-            ["RemovedBody"] = "Folder Managing er fjernet fra denne PC-en.",
-            ["NotFinished"] = "Ikke fullført",
-            ["Error"] = "Feil",
-            ["VersionLine"] = "Versjon {0}",
-            ["AlreadyInstalled"] = "Denne versjonen er allerede installert — du kan installere på nytt.",
-            ["WillUpdate"] = "Versjon {0} er installert og blir oppdatert.",
-            ["NeedAdminInstall"] = "Uten administratorrettigheter kan ikke Utforsker-menyen installeres. Kjør installasjonen på nytt og trykk Ja.",
-            ["NeedAdminUninstall"] = "Uten administratorrettigheter ble avinstalleringen stoppet. Kjør den på nytt og trykk Ja.",
-            ["DetailsLog"] = "Detaljer: {0}",
-            ["Win10Note"] = "Folder Managing er laget for Windows 11. I Windows 10 kan menypunktet mangle.",
-            ["InstalledBody"] = "Folder Managing er installert. Høyreklikk en mappe → «Folder Manager».",
-            ["ShortcutDescription"] = "Mappefarger, etiketter og «Folder Manager»-menyen",
-            ["ColumnName"] = "Mappefarge",
-            ["TagColumnName"] = "Mappeetiketter",
-            ["SortInfoTip"] = "Folder Managing-farge · sorter: Sorter → «Mappefarge» (eller Etiketter), stigende",
-            ["ColorSortTip"] = "Mappefargen er satt.\n\nSlik legger du fargede mapper i regnbue-rekkefølge:\n1. Åpne den overordnede mappen\n2. Sorter → Mer… → «Mappefarge»\n   (reserve: Etiketter, vises som «282 · purple»)\n3. Sorter → Mappefarge → Stigende\n\nBare den fargede mappen endres. Denne meldingen vises ikke igjen.",
-            ["Pin"] = "📌 Fest mappe",
-            ["Unpin"] = "📌 Løsne mappe",
-            ["TagLine"] = "🏷️ Etikett — {0}",
-            ["ColorLine"] = "🎨 Farge — {0}",
-            ["ColorHex"] = "🎨 Farge #{0}",
-            ["ColorPlain"] = "🎨 Farge",
-            ["KindPin"] = "Fest / løsne i Hurtigtilgang",
-            ["KindQuick"] = "Fargehjul (vindu)",
-            ["KindPresets"] = "Mine farger (forhåndsvalg)",
-            ["KindPalette"] = "Systempalett (13 farger)",
-            ["KindReset"] = "Tilbakestill mappeikon",
-            ["KindTags"] = "Etiketter",
-            ["KindSettings"] = "Åpne innstillinger",
-            ["KindSeparator"] = "── Skillelinje ──",
-            ["LabelQuick"] = "🎨 Hurtigfarge…",
-            ["LabelReset"] = "↩ Tilbakestill standard mappeikon",
-            ["LabelSettings"] = "⚙️ Innstillinger for Folder Manager",
-            ["PalRed"] = "Rød", ["PalOrange"] = "Oransje", ["PalYellow"] = "Gul", ["PalLime"] = "Lime",
-            ["PalGreen"] = "Grønn", ["PalTeal"] = "Turkis", ["PalCyan"] = "Cyan", ["PalBlue"] = "Blå",
-            ["PalIndigo"] = "Indigo", ["PalPurple"] = "Lilla", ["PalPink"] = "Rosa", ["PalBrown"] = "Brun", ["PalGray"] = "Grå",
-            ["DeleteColor"] = "Slett farge",
-            ["DeleteTag"] = "Slett etikett",
-            ["MenuWin11Note"] = "Windows 11 kan ikke tegne ekte skillelinjer i en undermeny — den viser en deaktivert rad «────────». Appen har ett menypunkt: er det to eller flere, samler Windows dem under «Folder Managing».",
-            ["OpenLogsFail"] = "Kunne ikke åpne loggmappen:\n{0}\n\n{1}",
-            ["PickResetFolder"] = "Velg mappen der ikonet skal tilbakestilles (desktop.ini).",
-            ["IconResetOk"] = "Det vanlige gule ikonet vises etter at du oppdaterer Utforsker-vinduet (F5).",
-            ["IconResetFail"] = "Kunne ikke tilbakestille ikonet (administratorrettigheter kreves):\n{0}\n\n{1}",
-            ["UacProtected"] = "Windows beskytter denne mappen, så den kan ikke endres uten administratorrettigheter:\n{0}\n\nPrøve på nytt med administratorrettigheter?\n\n(Du kan slå på automatisk heving i innstillingene for Folder Managing.)",
-            ["ResetUac"] = "Windows beskytter denne mappen:\n{0}\n\nTilbakestille ikonet på nytt med administratorrettigheter?",
-            ["UacOnce"] = "Bekreft administratorvinduet i Windows én gang. Deretter spør den ikke igjen så lenge innstillingen er på.",
-            ["UacFail"] = "Administratorrettigheter virket ikke.\n{0}\n\nDetaljer ligger i loggen (Innstillinger → Åpne logger).",
-            ["ChangeFolderFail"] = "Kunne ikke endre mappen:\n{0}\n\n{1}\n\nDetaljer ligger i loggen (Innstillinger → Åpne logger).",
-            ["AutostartFail"] = "Kunne ikke endre oppstart:\n{0}",
-            ["AdminExplain"] = "For å endre systemmapper uten spørsmål hver gang må du bekrefte administratorrettigheter (UAC) én gang.\n\n",
-            ["ServiceStartFail"] = "Kunne ikke starte tjenesten. Bekreft Windows-vinduet (UAC) hvis det vises.\n{0}",
-            ["ResetConfirmBody"] = "Sette alle innstillinger tilbake til standard?\n\n• Hurtigmeny — tilbake til originalen\n• Tema — som systemet\n• Administratorrettigheter for systemmapper — på\n\nFarger, etiketter og fargede mapper beholdes.",
-            ["ResetDoneBody"] = "Ferdig. Den nye menyen vises neste gang du høyreklikker en mappe.",
-            ["StatusAdminOn"] = "Status: administrator-tjenesten kjører — systemmapper kan endres uten nytt UAC-spørsmål.",
-            ["StatusAdminOff"] = "Status: administrator-tjenesten kjører ikke. Slå på bryteren (eller knappen under) og bekreft UAC én gang.",
-            ["SeparatorsFull"] = "Det finnes allerede en skillelinje mellom alle blokkene.\nFlytt en eksisterende med pilene, eller slett en ekstra.",
-            ["ResetMenuConfirm"] = "Sette hurtigmenyen tilbake til standard?",
-            ["ShowInMenu"] = "Vis i menyen",
-            ["CustomLabelEmpty"] = "Eget navn (tomt = standard)",
-            ["MoveUp"] = "Opp",
-            ["MoveDown"] = "Ned",
-            ["DeleteSeparator"] = "Slett skillelinje",
-            ["NotePin"] = "Viser den som passer: Fest eller Løsne.",
-            ["NoteQuick"] = "Åpner fargehjulet — hvilken som helst farge.",
-            ["NotePresetsEmpty"] = "Det er ingen farger ennå — ingenting vises i menyen. Legg til noen på siden Mappefarger.",
-            ["NotePresetsCount"] = "Nå: {0} — hver på sin egen rad.",
-            ["NotePalette"] = "Rød, oransje, gul, … grå — et fast sett, 13 rader.",
-            ["NoteReset"] = "Tilbakestiller det vanlige gule ikonet.",
-            ["NoteTagsEmpty"] = "Det er ingen etiketter ennå — ingenting vises i menyen.",
-            ["NoteTagsCount"] = "Nå: {0} — hver på sin egen rad.",
-            ["NoteSettings"] = "Åpner denne appen.",
-            ["NoteSeparator"] = "I menyen er dette en deaktivert rad «────────» uten ikon. Utforsker skjuler den på slutten av listen — sett den mellom blokkene.",
-            ["MenuEmpty"] = "Menyen er tom — slå på minst ett punkt.",
-            ["MenuLineCount"] = "Rader i menyen: {0} (pluss skillelinjer).",
-            ["TrayPaint"] = "Fargelegg en mappe…",
-            ["TraySettings"] = "Åpne innstillinger",
-            ["TrayExit"] = "Avslutt",
-            ["PickPaintFolder"] = "Velg mappen som skal fargelegges",
-            ["PaintFail"] = "Kunne ikke fargelegge mappen:\n{0}",
-            ["Painting"] = "Fargelegger…",
-            ["BuiltInColor"] = "En innebygd farge kan ikke slettes — endre den, eller skjul den senere i menyinnstillingene.",
-            ["ColorNamed"] = "Farge — {0}",
-            ["UnpackFiles"] = "Pakker ut filer…",
-            ["PrepareWindows"] = "Klargjør Windows (bekreft administratorforespørselen)…",
-            ["PrepareDotnet"] = "Installerer .NET 8 og klargjør Windows (bekreft administratorforespørselen, ca. 1–2 minutter)…",
-            ["InstallingApp"] = "Installerer Folder Managing…",
-            ["ShortcutsAutostart"] = "Snarveier og oppstart…",
-            ["RestartingExplorer"] = "Starter Utforsker på nytt…",
-            ["AutoOpenFail"] = "Kunne ikke åpne Folder Managing automatisk — start den fra Start-menyen.",
-            ["AdminStepCode"] = "Administratortrinnet ble avsluttet med kode {0}.",
-            ["ClosingApp"] = "Lukker Folder Managing…",
-            ["RestoringIcons"] = "Tilbakestiller standard mappeikoner…",
-            ["RemovingPackage"] = "Fjerner pakken…",
-            ["RemovingSystemSettings"] = "Fjerner systeminnstillinger (bekreft administratorforespørselen)…",
-            ["FolderNotReset"] = "Mappen ble ikke tilbakestilt: {0}",
-            ["AdminLeftColumn"] = "Uten administratorrettigheter ble sertifikatet og kolonnen «Mappefarge» liggende: {0}",
-            ["RemovingShortcuts"] = "Fjerner snarveier…",
-            ["PayloadBroken"] = "Installasjonsprogrammet er skadet: de innebygde filene mangler.",
-            ["ColumnRegisterFail"] = "Sorteringskolonnen «Mappefarge» ble ikke registrert: {0}",
-            ["MissingDotnet"] = "Installasjonsprogrammet inneholder ikke .NET Desktop Runtime.",
-            ["DotnetStartFail"] = "Kunne ikke starte installasjonen av .NET Desktop Runtime.",
-            ["DotnetExitCode"] = "Installasjonen av .NET Desktop Runtime ble avsluttet med kode {0}.",
-            ["PowershellStartFail"] = "Kunne ikke starte PowerShell.",
-            ["PowershellExit"] = "PowerShell ble avsluttet med kode {0}.",
-            ["InstallerPathMissing"] = "Fant ikke banen til installasjonsprogrammet.",
-            ["AdminStepStartFail"] = "Kunne ikke starte administratortrinnet.",
-            ["AdminDenied"] = "Administratorforespørselen ble avslått.",
-            ["LogReadme"] = "Hovedlogg for klikk (linjer [CLICK ….]):\r\n{0}\r\n\r\nDetaljert COM / dllhost-spor:\r\n{1}\r\n\r\nSe etter: [CLICK id] START … RESULT=OK eller RESULT=FAIL\r\n",
-        };
-
-        return new Dictionary<string, Dictionary<string, string>>(StringComparer.Ordinal)
-        {
-            [English] = en,
-            [Russian] = ru,
-            [Norwegian] = nb,
-        };
+            return null;
+        }
     }
+
+    static IReadOnlyDictionary<string, string> Load(string code)
+    {
+        var table = new Dictionary<string, string>(StringComparer.Ordinal);
+        using var stream = typeof(UiText).Assembly.GetManifestResourceStream($"FolderManaging.Strings.{code}.json");
+        if (stream is null)
+            return table;
+        using var json = JsonDocument.Parse(stream);
+        foreach (var entry in json.RootElement.EnumerateObject())
+        {
+            if (entry.Value.ValueKind == JsonValueKind.String)
+                table[entry.Name] = entry.Value.GetString()!;
+        }
+
+        return table;
+    }
+
+    static CultureInfo GetCulture(string code)
+    {
+        try
+        {
+            return CultureInfo.GetCultureInfo(code);
+        }
+        catch (CultureNotFoundException)
+        {
+            return CultureInfo.InvariantCulture;
+        }
+    }
+
+    const uint MuiLanguageName = 0x8;
+
+    [DllImport("kernel32.dll", CharSet = CharSet.Unicode, SetLastError = true)]
+    static extern bool GetUserPreferredUILanguages(uint dwFlags, out uint pulNumLanguages, char[]? pwszLanguagesBuffer, ref uint pcchLanguagesBuffer);
+
+    [DllImport("kernel32.dll")]
+    static extern ushort GetUserDefaultUILanguage();
 }

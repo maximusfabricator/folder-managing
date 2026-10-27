@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: GPL-2.0-only
+// Copyright (C) 2026 maximusfabricator
+
 using FolderManaging.Core.Models;
 
 namespace FolderManaging.Core.Storage;
@@ -43,8 +46,11 @@ public static class MenuPresetNormalizer
 
         if (doc.MenuTags.Count == 0)
         {
-            foreach (var (id, label, hex) in DefaultTags())
-                doc.MenuTags.Add(new MenuTagPreset { Id = id, Label = label, HexRgb = hex });
+            if (doc.DefaultTagsSeeded != true)
+            {
+                foreach (var (id, label, hex) in DefaultTags())
+                    doc.MenuTags.Add(new MenuTagPreset { Id = id, Label = label, HexRgb = hex });
+            }
         }
         else
         {
@@ -58,6 +64,8 @@ public static class MenuPresetNormalizer
                     t.HexRgb = MenuTagPresetDefaults.HexRgb;
             }
         }
+
+        doc.DefaultTagsSeeded = true;
     }
 
     static void MigrateLegacyColorIds(AppStateDocument doc)

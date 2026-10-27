@@ -1,4 +1,7 @@
-﻿using System.Drawing;
+﻿// SPDX-License-Identifier: GPL-2.0-only
+// Copyright (C) 2026 maximusfabricator
+
+using System.Drawing;
 using FolderManaging.Core;
 using FolderManaging.Core.Diagnostics;
 using FolderManaging.Core.Models;
@@ -164,7 +167,8 @@ internal static class MenuBuilder
             if (string.IsNullOrWhiteSpace(t.Id))
                 continue;
             var icon = FolderIconManager.TryGetTagIconMenuReference(t.Id, t.HexRgb);
-            list.Add(new MenuActionExplorerCommand($"tag-{t.Id}", UiText.Format("TagLine", t.Label), "tag", t.Id, icon));
+            list.Add(new MenuActionExplorerCommand($"tag-{t.Id}", UiText.Format("TagLine", t.Label), "tag", t.Id, icon,
+                checkedTitle: UiText.Format("TagLineOn", t.Label)));
         }
     }
 

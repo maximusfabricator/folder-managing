@@ -1,3 +1,6 @@
+# SPDX-License-Identifier: GPL-2.0-only
+# Copyright (C) 2026 maximusfabricator
+
 <#
 .SYNOPSIS
 Creates a self-signed code-signing certificate for MSIX dev installs and trusts the public key for the current user.

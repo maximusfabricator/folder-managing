@@ -1,7 +1,12 @@
+// SPDX-License-Identifier: GPL-2.0-only
+// Copyright (C) 2026 maximusfabricator
+
 using System.Diagnostics;
 using System.IO;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Markup;
+using FolderManaging.Companion.Localization;
 using FolderManaging.Core;
 using FolderManaging.Core.Diagnostics;
 using FolderManaging.Core.Localization;
@@ -16,6 +21,7 @@ public partial class SettingsPage : System.Windows.Controls.UserControl
     public SettingsPage()
     {
         InitializeComponent();
+        UiDirection.Apply(this);
     }
 
     void OnLoaded(object sender, RoutedEventArgs e)
@@ -25,6 +31,7 @@ public partial class SettingsPage : System.Windows.Controls.UserControl
         {
             AutoElevateToggle.IsChecked = CompanionState.Document.AutoElevateProtectedFolders;
             SelectThemeCombo(CompanionState.Document.Theme);
+            FillLanguageCombo();
             RefreshWorkerStatus();
             if (AutostartService.IsAvailable)
             {
@@ -74,6 +81,60 @@ public partial class SettingsPage : System.Windows.Controls.UserControl
         ThemeCombo.SelectedIndex = 0;
     }
 
+    void FillLanguageCombo()
+    {
+        LanguageCombo.Items.Clear();
+        var matchWindows = new ComboBoxItem
+        {
+            Tag = "",
+            Content = UiText.Format("LanguageSystem", UiText.WindowsLanguage.NativeName),
+        };
+        LanguageCombo.Items.Add(matchWindows);
+        foreach (var language in UiText.Languages)
+        {
+            LanguageCombo.Items.Add(new ComboBoxItem
+            {
+                Tag = language.Code,
+                Content = language.NativeName,
+                Language = XmlLanguage.GetLanguage(language.Code),
+            });
+        }
+
+        var saved = CompanionState.Document.Language;
+        var code = string.IsNullOrWhiteSpace(saved) ? "" : UiText.ResolveLanguage(saved);
+        LanguageCombo.SelectedItem = LanguageCombo.Items.Cast<ComboBoxItem>()
+            .FirstOrDefault(i => string.Equals((string)i.Tag, code, StringComparison.OrdinalIgnoreCase)) ?? matchWindows;
+    }
+
+    void OnLanguageChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (_suppressToggleEvents || LanguageCombo.SelectedItem is not ComboBoxItem { Tag: string code })
+            return;
+
+        var preference = code.Length == 0 ? null : code;
+        if (string.Equals(preference, CompanionState.Document.Language, StringComparison.OrdinalIgnoreCase))
+            return;
+
+        using var scope = ClickTrace.Begin("companion", "settings-language", detail: preference ?? "windows");
+        CompanionState.Document.Language = preference;
+        CompanionState.Save();
+        ApplySavedLanguage();
+        ClickTrace.Ok($"Language={UiText.Current.Code}");
+        scope.MarkFinished();
+    }
+
+    /// <summary>Switches the app to the saved language; the Explorer menu follows on its next right-click.</summary>
+    static void ApplySavedLanguage()
+    {
+        var before = UiText.Current;
+        UiText.Use(CompanionState.Document.Language);
+        if (UiText.Current == before)
+            return;
+
+        Task.Run(ElevatedCliInvoker.TrySyncLanguage);
+        App.ReloadUi(typeof(SettingsPage));
+    }
+
     static AppThemePreference ParseThemeTag(string? tag) =>
         tag switch
         {
@@ -99,7 +160,7 @@ public partial class SettingsPage : System.Windows.Controls.UserControl
         {
             ClickTrace.Fail(ex);
             scope.MarkFinished();
-            System.Windows.MessageBox.Show(
+            FmMessageBox.Show(
                 Window.GetWindow(this),
                 UiText.Format("AutostartFail", ex.Message),
                 "Folder Managing",
@@ -136,7 +197,7 @@ public partial class SettingsPage : System.Windows.Controls.UserControl
                     _suppressToggleEvents = false;
                 }
 
-                System.Windows.MessageBox.Show(
+                FmMessageBox.Show(
                     Window.GetWindow(this),
                     UiText.Get("AdminExplain") +
                     (string.IsNullOrWhiteSpace(err) ? "" : err),
@@ -180,7 +241,7 @@ public partial class SettingsPage : System.Windows.Controls.UserControl
         {
             ClickTrace.Fail(err);
             scope.MarkFinished();
-            System.Windows.MessageBox.Show(
+            FmMessageBox.Show(
                 Window.GetWindow(this),
                 UiText.Format("ServiceStartFail", err),
                 "Folder Managing",
@@ -199,7 +260,7 @@ public partial class SettingsPage : System.Windows.Controls.UserControl
 
     void OnResetSettingsClick(object sender, RoutedEventArgs e)
     {
-        var answer = System.Windows.MessageBox.Show(
+        var answer = FmMessageBox.Show(
             Window.GetWindow(this),
             UiText.Get("ResetConfirmBody"),
             UiText.Get("ResetSettings"),
@@ -220,6 +281,7 @@ public partial class SettingsPage : System.Windows.Controls.UserControl
         {
             AutoElevateToggle.IsChecked = CompanionState.Document.AutoElevateProtectedFolders;
             SelectThemeCombo(CompanionState.Document.Theme);
+            FillLanguageCombo();
         }
         finally
         {
@@ -228,12 +290,15 @@ public partial class SettingsPage : System.Windows.Controls.UserControl
 
         RefreshWorkerStatus();
 
-        System.Windows.MessageBox.Show(
+        FmMessageBox.Show(
             Window.GetWindow(this),
             UiText.Get("ResetDoneBody"),
             UiText.Get("ResetSettings"),
             MessageBoxButton.OK,
             MessageBoxImage.Information);
+
+        // After the dialog: rebuilding the window while it is open would close it together with its owner.
+        ApplySavedLanguage();
     }
 
     void OnUninstallClick(object sender, RoutedEventArgs e)
@@ -245,7 +310,7 @@ public partial class SettingsPage : System.Windows.Controls.UserControl
             "FolderManaging.Setup.exe");
         if (!File.Exists(exe))
         {
-            System.Windows.MessageBox.Show(
+            FmMessageBox.Show(
                 Window.GetWindow(this),
                 UiText.Get("UninstallMissing"),
                 "Folder Managing",

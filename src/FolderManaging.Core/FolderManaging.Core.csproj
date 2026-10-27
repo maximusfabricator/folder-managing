@@ -12,4 +12,9 @@
     <PackageReference Include="System.IO.Pipes.AccessControl" Version="5.0.0" />
   </ItemGroup>
 
+  <ItemGroup>
+    <None Remove="Localization\Strings\*.json" />
+    <EmbeddedResource Include="Localization\Strings\*.json" LogicalName="FolderManaging.Strings.%(Filename).json" />
+  </ItemGroup>
+
 </Project>

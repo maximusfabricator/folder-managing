@@ -27,6 +27,8 @@ artifacts/
 
 # Logs & local state
 *.log
+*.binlog
+TestResults/
 WHERE-ARE-LOGS.txt
 
 # OS

@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: GPL-2.0-only
+// Copyright (C) 2026 maximusfabricator
+
 using FolderManaging.Core;
 using FolderManaging.Core.Diagnostics;
 using FolderManaging.Core.Storage;
@@ -28,13 +31,11 @@ internal static class ComVerbExecutor
         TraceLog.Append("shell-menu.log", "[COM] [PROCESS] in-proc RemoveCustomization + state");
         // Must throw UnauthorizedAccessException so UserFeedback can offer / auto-run elevated CLI
         // (TryRemoveCustomization used to swallow access-denied and report SUCCESS while doing nothing).
-        FolderIconManager.RemoveCustomization(folderPath);
+        FolderIconManager.RemoveCustomizationIfOurs(folderPath);
 
         var editor = new FolderStateEditor(new JsonFolderStateStore());
-        editor.SetColorTokenAsync(folderPath, null, CancellationToken.None).GetAwaiter().GetResult();
-        ClickTrace.Step("state.json colorToken cleared");
-        // Keep the tag badge if the folder still has tags (stock yellow + badge).
-        FolderIconManager.SyncFolderTags(folderPath);
+        editor.ResetFolderAsync(folderPath, CancellationToken.None).GetAwaiter().GetResult();
+        ClickTrace.Step("state.json color and tags cleared");
     }
 
     internal static void Pin(string folderPath)
@@ -55,14 +56,23 @@ internal static class ComVerbExecutor
         editor.SetPinnedAsync(folderPath, pinned: false, CancellationToken.None).GetAwaiter().GetResult();
     }
 
-    internal static void Tag(string folderPath, string tagId)
+    /// <summary>Adds the tag, or removes it when the folder already has it (the menu row shows ✅ then).</summary>
+    internal static void ToggleTag(string folderPath, string tagId, bool add)
     {
-        ClickTrace.Step($"in-proc Tag tag={tagId}");
-        TraceLog.Append("shell-menu.log", $"[COM] [PROCESS] in-proc UpsertTag tag={tagId}");
+        ClickTrace.Step($"in-proc {(add ? "Tag" : "Untag")} tag={tagId}");
+        TraceLog.Append("shell-menu.log", $"[COM] [PROCESS] in-proc {(add ? "UpsertTag" : "RemoveTag")} tag={tagId}");
+        // Protected folder: fail before state.json changes, so the elevated worker does the whole action.
+        FolderIconManager.EnsureFolderWritable(folderPath);
         var editor = new FolderStateEditor(new JsonFolderStateStore());
-        editor.UpsertTagAsync(folderPath, tagId, CancellationToken.None).GetAwaiter().GetResult();
+        if (add)
+            editor.UpsertTagAsync(folderPath, tagId, CancellationToken.None).GetAwaiter().GetResult();
+        else
+            editor.RemoveTagAsync(folderPath, tagId, CancellationToken.None).GetAwaiter().GetResult();
         FolderIconManager.SyncFolderTags(folderPath);
     }
+
+    internal static bool FolderHasTag(string folderPath, string tagId) =>
+        FolderStateTagSync.FolderHasTag(JsonFolderStateStore.LoadSynchronously(), folderPath, tagId);
 
     internal static void OpenSettings()
     {

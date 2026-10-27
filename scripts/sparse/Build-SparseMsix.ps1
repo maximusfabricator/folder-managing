@@ -1,3 +1,6 @@
+# SPDX-License-Identifier: GPL-2.0-only
+# Copyright (C) 2026 maximusfabricator
+
 <#
 .SYNOPSIS
 Stages binaries + manifest, generates placeholder visual assets, packs an unsigned layout to MSIX, and signs it.

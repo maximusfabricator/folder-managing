@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: GPL-2.0-only
+// Copyright (C) 2026 maximusfabricator
+
 using System.Windows.Threading;
 using FolderManaging.Core.Diagnostics;
 using FolderManaging.Core.Models;
@@ -27,7 +30,14 @@ internal static class AppThemeService
     static bool _systemHooked;
     static DispatcherTimer? _systemChangeDebounce;
 
+#if FM_DEV
+    /// <summary>Developer UI tour: shows a theme without saving it.</summary>
+    internal static AppThemePreference? TourTheme { get; set; }
+
+    internal static void ApplyFromDocument() => Apply(TourTheme ?? CompanionState.Document.Theme);
+#else
     internal static void ApplyFromDocument() => Apply(CompanionState.Document.Theme);
+#endif
 
     internal static void Apply(AppThemePreference preference)
     {

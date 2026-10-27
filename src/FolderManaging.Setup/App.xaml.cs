@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: GPL-2.0-only
+// Copyright (C) 2026 maximusfabricator
+
 using System.Windows;
 using FolderManaging.Core.Localization;
 using Microsoft.Win32;
@@ -18,6 +21,14 @@ public partial class App : Application
             Shutdown(ElevatedTasks.Run(e.Args));
             return;
         }
+
+#if FM_DEV
+        if (SetupUiTour.TryStart(this, e.Args))
+        {
+            ApplicationThemeManager.Apply(ReadSystemTheme(), WindowBackdropType.Mica, updateAccent: true);
+            return;
+        }
+#endif
 
         var uninstall = !Payload.IsEmbedded || HasSwitch(e.Args, "--uninstall");
         if (HasSwitch(e.Args, "--quiet"))

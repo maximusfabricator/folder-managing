@@ -17,14 +17,14 @@
 
   <Identity Name="FolderManaging"
             Publisher="CN=Folder Managing"
-            Version="1.1.0.0"
+            Version="2.0.0.0"
             ProcessorArchitecture="x64" />
 
   <Properties>
     <DisplayName>Folder Managing</DisplayName>
-    <PublisherDisplayName>Folder Managing</PublisherDisplayName>
+    <PublisherDisplayName>maximusfabricator</PublisherDisplayName>
     <Logo>Assets\StoreLogo.png</Logo>
-    <Description>Folder colors, tags and the «Folder Manager» Explorer menu.</Description>
+    <Description>Folder colors, tags and the “Folder Manager” Explorer menu.</Description>
     <desktop6:FileSystemWriteVirtualization>disabled</desktop6:FileSystemWriteVirtualization>
     <desktop6:RegistryWriteVirtualization>disabled</desktop6:RegistryWriteVirtualization>
   </Properties>

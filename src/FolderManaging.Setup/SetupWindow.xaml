@@ -1,3 +1,5 @@
+<!-- SPDX-License-Identifier: GPL-2.0-only -->
+<!-- Copyright (C) 2026 maximusfabricator -->
 <ui:FluentWindow x:Class="FolderManaging.Setup.SetupWindow"
                  xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
                  xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
@@ -43,27 +45,38 @@
                            Text="{loc:Loc SetupBlurb}" />
                 <TextBlock x:Name="InstalledVersionText" Margin="0,8,0,0" TextWrapping="Wrap" FontSize="13"
                            Foreground="{DynamicResource TextFillColorSecondaryBrush}" Visibility="Collapsed" />
-                <CheckBox x:Name="AutostartCheck" Margin="0,18,0,0" IsChecked="True"
-                          Content="{loc:Loc SetupAutostart}" />
-                <CheckBox x:Name="DesktopShortcutCheck" Margin="0,8,0,0" IsChecked="False"
-                          Content="{loc:Loc SetupDesktop}" />
-                <CheckBox x:Name="RestartExplorerCheck" Margin="0,8,0,0" IsChecked="True"
-                          Content="{loc:Loc SetupRestart}" />
-                <CheckBox x:Name="LaunchCheck" Margin="0,8,0,0" IsChecked="True"
-                          Content="{loc:Loc SetupLaunch}" />
+                <CheckBox x:Name="AutostartCheck" Margin="0,18,0,0" IsChecked="True">
+                    <TextBlock TextWrapping="Wrap" Text="{loc:Loc SetupAutostart}" />
+                </CheckBox>
+                <CheckBox x:Name="DesktopShortcutCheck" Margin="0,8,0,0" IsChecked="False">
+                    <TextBlock TextWrapping="Wrap" Text="{loc:Loc SetupDesktop}" />
+                </CheckBox>
+                <CheckBox x:Name="RestartExplorerCheck" Margin="0,8,0,0" IsChecked="True">
+                    <TextBlock TextWrapping="Wrap" Text="{loc:Loc SetupRestart}" />
+                </CheckBox>
+                <CheckBox x:Name="LaunchCheck" Margin="0,8,0,0" IsChecked="True">
+                    <TextBlock TextWrapping="Wrap" Text="{loc:Loc SetupLaunch}" />
+                </CheckBox>
                 <TextBlock Margin="0,16,0,0" TextWrapping="Wrap" FontSize="12"
                            Foreground="{DynamicResource TextFillColorSecondaryBrush}"
                            Text="{loc:Loc SetupAdminNote}" />
+                <TextBlock Margin="0,8,0,0" TextWrapping="Wrap" FontSize="12"
+                           Foreground="{DynamicResource TextFillColorSecondaryBrush}"
+                           Text="{loc:Loc SetupLicense}" />
+                <TextBlock x:Name="CopyrightText" Margin="0,2,0,0" FontSize="12" FlowDirection="LeftToRight" HorizontalAlignment="Left"
+                           Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
             </StackPanel>
 
             <!-- Uninstall -->
             <StackPanel x:Name="UninstallPage" Visibility="Collapsed">
                 <TextBlock TextWrapping="Wrap" FontSize="14" LineHeight="21"
                            Text="{loc:Loc UninstallBlurb}" />
-                <CheckBox x:Name="ResetFoldersCheck" Margin="0,18,0,0" IsChecked="True"
-                          Content="{loc:Loc UninstallReset}" />
-                <CheckBox x:Name="DeleteSettingsCheck" Margin="0,8,0,0" IsChecked="False"
-                          Content="{loc:Loc UninstallDeleteData}" />
+                <CheckBox x:Name="ResetFoldersCheck" Margin="0,18,0,0" IsChecked="True">
+                    <TextBlock TextWrapping="Wrap" Text="{loc:Loc UninstallReset}" />
+                </CheckBox>
+                <CheckBox x:Name="DeleteSettingsCheck" Margin="0,8,0,0" IsChecked="False">
+                    <TextBlock TextWrapping="Wrap" Text="{loc:Loc UninstallDeleteData}" />
+                </CheckBox>
             </StackPanel>
 
             <!-- Progress -->

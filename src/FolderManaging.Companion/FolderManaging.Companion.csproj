@@ -13,6 +13,12 @@
     <Resource Include="..\..\assets\FolderManaging.ico" Link="Assets\FolderManaging.ico" />
   </ItemGroup>
 
+  <!-- GPL-2.0 asks for the license text next to the program; About opens these files. -->
+  <ItemGroup>
+    <None Include="..\..\LICENSE" Link="LICENSE.txt" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="..\..\THIRD-PARTY-NOTICES.md" Link="THIRD-PARTY-NOTICES.txt" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
   <PropertyGroup>
     <OutputType>WinExe</OutputType>
     <TargetFramework>net8.0-windows</TargetFramework>

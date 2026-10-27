@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: GPL-2.0-only
+// Copyright (C) 2026 maximusfabricator
+
 using System.IO;
 using System.Windows.Threading;
 using FolderManaging.Core.Diagnostics;

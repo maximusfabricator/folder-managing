@@ -1,6 +1,10 @@
+// SPDX-License-Identifier: GPL-2.0-only
+// Copyright (C) 2026 maximusfabricator
+
 using System.Windows;
 using System.Windows.Forms;
 using System.Windows.Media;
+using FolderManaging.Companion.Localization;
 using FolderManaging.Core;
 using FolderManaging.Core.Diagnostics;
 using FolderManaging.Core.Localization;
@@ -19,6 +23,7 @@ public partial class QuickColorWindow : FluentWindow
     public QuickColorWindow(string? folderPath = null)
     {
         InitializeComponent();
+        UiDirection.Apply(this);
         _folderPath = folderPath;
         Loaded += OnLoaded;
     }
@@ -26,7 +31,7 @@ public partial class QuickColorWindow : FluentWindow
     void OnLoaded(object sender, RoutedEventArgs e)
     {
         if (!string.IsNullOrWhiteSpace(_folderPath))
-            FolderPathText.Text = _folderPath;
+            UiDirection.SetText(FolderPathText, UiText.LeftToRight(_folderPath));
         Wheel.SelectedColor = MediaColor.FromRgb(0x00, 0x7A, 0xCC);
         SyncFromWheel();
     }
@@ -61,7 +66,7 @@ public partial class QuickColorWindow : FluentWindow
         if (dlg.ShowDialog() != System.Windows.Forms.DialogResult.OK)
             return;
         _folderPath = dlg.SelectedPath;
-        FolderPathText.Text = _folderPath;
+        UiDirection.SetText(FolderPathText, UiText.LeftToRight(_folderPath));
     }
 
     void OnCancelClick(object sender, RoutedEventArgs e) => Close();
@@ -100,9 +105,9 @@ public partial class QuickColorWindow : FluentWindow
             {
                 if (!CompanionState.Document.AutoElevateProtectedFolders)
                 {
-                    var answer = System.Windows.MessageBox.Show(
+                    var answer = FmMessageBox.Show(
                         this,
-                        UiText.Format("UacProtected", path),
+                        UiText.Format("UacProtected", UiText.LeftToRight(path)),
                         "Folder Managing",
                         MessageBoxButton.YesNo,
                         MessageBoxImage.Warning);
@@ -137,7 +142,7 @@ public partial class QuickColorWindow : FluentWindow
         {
             ClickTrace.Fail(ex);
             scope.MarkFinished();
-            System.Windows.MessageBox.Show(
+            FmMessageBox.Show(
                 this,
                 UiText.Format("PaintFail", ex.Message),
                 "Folder Managing",

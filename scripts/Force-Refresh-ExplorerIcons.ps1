@@ -1,3 +1,6 @@
+# SPDX-License-Identifier: GPL-2.0-only
+# Copyright (C) 2026 maximusfabricator
+
 <#
 .SYNOPSIS
   Clears Explorer icon caches and restarts explorer.exe (same steps as FolderManaging.Cli force-refresh-icons).

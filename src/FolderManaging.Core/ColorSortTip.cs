@@ -1,4 +1,7 @@
-using System.Runtime.InteropServices;
+// SPDX-License-Identifier: GPL-2.0-only
+// Copyright (C) 2026 maximusfabricator
+
+using FolderManaging.Core.Interop;
 using FolderManaging.Core.Localization;
 using FolderManaging.Core.Storage;
 
@@ -9,14 +12,6 @@ namespace FolderManaging.Core;
 /// </summary>
 public static class ColorSortTip
 {
-    const uint MbOk = 0x0000_0000;
-    const uint MbIconInformation = 0x0000_0040;
-    const uint MbSetForeground = 0x0001_0000;
-    const uint MbTopmost = 0x0004_0000;
-
-    [DllImport("user32.dll", CharSet = CharSet.Unicode)]
-    static extern int MessageBoxW(nint hWnd, string text, string caption, uint type);
-
     public static void TryShowOnce()
     {
         try
@@ -25,11 +20,10 @@ public static class ColorSortTip
             if (doc.ColorSortTipShown)
                 return;
 
-            MessageBoxW(
-                0,
+            NativeMessageBox.Show(
                 UiText.Get("ColorSortTip"),
                 "Folder Managing",
-                MbOk | MbIconInformation | MbSetForeground | MbTopmost);
+                NativeMessageBox.Ok | NativeMessageBox.IconInformation | NativeMessageBox.SetForeground | NativeMessageBox.Topmost);
 
             doc.ColorSortTipShown = true;
             JsonFolderStateStore.SaveSynchronously(doc);

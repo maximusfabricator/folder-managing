@@ -34,6 +34,12 @@
     <Resource Include="..\..\logo.png" Link="Assets\logo.png" />
   </ItemGroup>
 
+  <!-- Shared with the Companion's UI tour; the files are empty outside developer builds. -->
+  <ItemGroup>
+    <Compile Include="..\FolderManaging.Companion\Diagnostics\CutText.cs" Link="Diagnostics\CutText.cs" />
+    <Compile Include="..\FolderManaging.Companion\Diagnostics\OffScreenShot.cs" Link="Diagnostics\OffScreenShot.cs" />
+  </ItemGroup>
+
   <ItemGroup Condition="'$(FmPayloadZip)' != ''">
     <EmbeddedResource Include="$(FmPayloadZip)" LogicalName="payload.zip" />
   </ItemGroup>

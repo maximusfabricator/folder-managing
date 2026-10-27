@@ -1,6 +1,10 @@
+// SPDX-License-Identifier: GPL-2.0-only
+// Copyright (C) 2026 maximusfabricator
+
 using System.Runtime.InteropServices;
 using System.Runtime.InteropServices.ComTypes;
 using FolderManaging.Core.Diagnostics;
+using FolderManaging.Core.Storage;
 using FolderManaging.Shell.Diagnostics;
 using Vanara.PInvoke;
 
@@ -17,6 +21,7 @@ internal sealed class MenuActionExplorerCommand : Shell32.IExplorerCommand
     private readonly Shell32.EXPCMDFLAGS _flags;
     private readonly bool _disabled;
     private readonly bool _omitIcon;
+    private readonly string? _checkedTitle;
 
     internal MenuActionExplorerCommand(
         string verbId,
@@ -26,7 +31,8 @@ internal sealed class MenuActionExplorerCommand : Shell32.IExplorerCommand
         string? menuIconReference = null,
         Shell32.EXPCMDFLAGS flags = Shell32.EXPCMDFLAGS.ECF_DEFAULT,
         bool disabled = false,
-        bool omitIcon = false)
+        bool omitIcon = false,
+        string? checkedTitle = null)
     {
         _verbId = verbId;
         _title = title;
@@ -36,12 +42,29 @@ internal sealed class MenuActionExplorerCommand : Shell32.IExplorerCommand
         _flags = flags;
         _disabled = disabled;
         _omitIcon = omitIcon;
+        _checkedTitle = checkedTitle;
     }
 
     public HRESULT GetTitle(Shell32.IShellItemArray? psiItemArray, out string? ppszName)
     {
-        ppszName = _title;
+        ppszName = _checkedTitle is not null && IsTagOnSelection(psiItemArray) ? _checkedTitle : _title;
         return HRESULT.S_OK;
+    }
+
+    /// <summary>Tag rows show ✅ when the selected folder already has the tag (a click then removes it).</summary>
+    bool IsTagOnSelection(Shell32.IShellItemArray? items)
+    {
+        try
+        {
+            var hr = ShellItemPaths.TryGetFirstPath(items, out var path);
+            return hr.Succeeded && !string.IsNullOrWhiteSpace(path) && !string.IsNullOrWhiteSpace(_token) &&
+                   FolderStateTagSync.FolderHasTag(MenuStateReader.GetMerged(), path, _token);
+        }
+        catch (Exception ex)
+        {
+            ShellActionLog.Write($"GetTitle tag state failed (verb={_verbId}): {ex.Message}");
+            return false;
+        }
     }
 
     public HRESULT GetIcon(Shell32.IShellItemArray? psiItemArray, out string? ppszIcon)
@@ -166,6 +189,7 @@ internal sealed class MenuActionExplorerCommand : Shell32.IExplorerCommand
             ExtremeLogger.Log($"[COM] [PROCESS] resolved path='{path ?? "(none)"}'");
             ShellActionLog.Write($"[COM] [PROCESS] resolved path={path ?? "(none)"}");
 
+            var tagAdd = true;
             try
             {
                 switch (kindInvoke)
@@ -221,11 +245,12 @@ internal sealed class MenuActionExplorerCommand : Shell32.IExplorerCommand
                             throw new ArgumentException("Tag id is required.");
                         if (string.IsNullOrWhiteSpace(path))
                             throw new InvalidOperationException("tag requires a folder path.");
-                        ExtremeLogger.Log($"[COM] [PROCESS] dispatch -> ComVerbExecutor.Tag token={_token}");
-                        ComVerbExecutor.Tag(path, _token);
+                        tagAdd = !ComVerbExecutor.FolderHasTag(path, _token);
+                        ExtremeLogger.Log($"[COM] [PROCESS] dispatch -> ComVerbExecutor.ToggleTag token={_token} add={tagAdd}");
+                        ComVerbExecutor.ToggleTag(path, _token, tagAdd);
                         ExtremeLogger.Log($"[COM] [SUCCESS] verb={_verbId} kind=tag token={_token}");
                         ShellActionLog.Write($"[COM] [SUCCESS] verb={_verbId} kind=tag token={_token}");
-                        ClickTrace.Ok($"tag={_token} path='{path}'");
+                        ClickTrace.Ok($"{(tagAdd ? "tag" : "untag")}={_token} path='{path}'");
                         click.MarkFinished();
                         return HRESULT.S_OK;
 
@@ -279,8 +304,9 @@ internal sealed class MenuActionExplorerCommand : Shell32.IExplorerCommand
                     ex,
                     $"verb-execution failure verb={_verbId} kind={_kind} token={_token ?? "(none)"} path={path}");
                 ShellActionLog.Write($"[COM] [FAIL] verb-execution verb={_verbId} kind={_kind} ex={ex}");
-                if (kindInvoke is "color" or "rgb" or "reset" && !string.IsNullOrWhiteSpace(path) &&
-                    UserFeedback.ReportFolderActionFailure(kindInvoke, path, kindInvoke is "color" or "rgb" ? _token : null, ex))
+                var elevatedAction = kindInvoke == "tag" && !tagAdd ? "untag" : kindInvoke;
+                if (elevatedAction is "color" or "rgb" or "reset" or "tag" or "untag" && !string.IsNullOrWhiteSpace(path) &&
+                    UserFeedback.ReportFolderActionFailure(elevatedAction, path, elevatedAction is "color" or "rgb" or "tag" or "untag" ? _token : null, ex))
                 {
                     ClickTrace.Ok($"{kindInvoke} done via elevated CLI path='{path}'");
                     click?.MarkFinished();

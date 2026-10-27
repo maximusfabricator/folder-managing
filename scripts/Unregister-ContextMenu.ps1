@@ -1,3 +1,6 @@
+# SPDX-License-Identifier: GPL-2.0-only
+# Copyright (C) 2026 maximusfabricator
+
 <#!
 Removes the per-user context menu registration. Pass the same CLI binary used for install
 so its embedded uninstall logic runs (or use any built copy of FolderManaging.Cli.exe).

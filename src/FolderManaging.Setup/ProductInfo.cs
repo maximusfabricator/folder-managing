@@ -1,11 +1,15 @@
+// SPDX-License-Identifier: GPL-2.0-only
+// Copyright (C) 2026 maximusfabricator
+
 using System.Reflection;
+using FolderManaging.Core;
 
 namespace FolderManaging.Setup;
 
 internal static class ProductInfo
 {
-    internal const string DisplayName = "Folder Managing";
-    internal const string Publisher = "Folder Managing";
+    internal const string DisplayName = AppInfo.ProductName;
+    internal const string Publisher = AppInfo.Author;
 
     /// <summary>Must match Identity/@Name in sparse\AppxManifest.User.xml.</summary>
     internal const string PackageName = "FolderManaging";

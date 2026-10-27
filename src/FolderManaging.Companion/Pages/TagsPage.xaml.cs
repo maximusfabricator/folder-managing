@@ -1,10 +1,15 @@
-﻿using System.Collections.ObjectModel;
+﻿// SPDX-License-Identifier: GPL-2.0-only
+// Copyright (C) 2026 maximusfabricator
+
+using System.Collections.ObjectModel;
 using System.Text.RegularExpressions;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
+using FolderManaging.Companion.Localization;
 using FolderManaging.Core;
 using FolderManaging.Core.Diagnostics;
+using FolderManaging.Core.Localization;
 using FolderManaging.Core.Models;
 using FolderManaging.Core.Storage;
 using DrawingColor = System.Drawing.Color;
@@ -14,13 +19,38 @@ namespace FolderManaging.Companion.Pages;
 public partial class TagsPage : System.Windows.Controls.UserControl
 {
     ObservableCollection<MenuTagPreset>? _tags;
+    static readonly SemaphoreSlim RefreshGate = new(1, 1);
+    bool _listening;
 
     public TagsPage()
     {
         InitializeComponent();
+        UiDirection.Apply(this);
+        Unloaded += OnUnloaded;
     }
 
     void OnLoaded(object sender, RoutedEventArgs e)
+    {
+        if (!_listening)
+        {
+            CompanionState.DocumentChanged += OnDocumentChanged;
+            _listening = true;
+        }
+
+        BindTags();
+    }
+
+    void OnUnloaded(object sender, RoutedEventArgs e)
+    {
+        if (!_listening)
+            return;
+        CompanionState.DocumentChanged -= OnDocumentChanged;
+        _listening = false;
+    }
+
+    void OnDocumentChanged(object? sender, EventArgs e) => BindTags();
+
+    void BindTags()
     {
         var doc = CompanionState.Document;
         _tags = new ObservableCollection<MenuTagPreset>(doc.MenuTags);
@@ -28,15 +58,21 @@ public partial class TagsPage : System.Windows.Controls.UserControl
         ClickTrace.Step($"TagsPage loaded count={_tags.Count}");
     }
 
-    void OnTagLabelChanged(object sender, TextChangedEventArgs e) => CompanionState.Save();
-
     void OnTagLabelLostFocus(object sender, RoutedEventArgs e)
     {
+        // Commit the name here, together with the folder rewrite.
+        // Saving on each keystroke would put the new name in state.json while desktop.ini still has the old one.
         CompanionState.Save();
-        FolderIconManager.RefreshAllFolderTags();
+        _ = RefreshFoldersAsync();
     }
 
     void OnAddTagClick(object sender, RoutedEventArgs e) => TryAddTag();
+
+    void OnNewTagNameChanged(object sender, TextChangedEventArgs e)
+    {
+        if (AddTagButton is not null)
+            AddTagButton.IsEnabled = !string.IsNullOrWhiteSpace(NewTagName.Text);
+    }
 
     void OnNewTagKeyDown(object sender, System.Windows.Input.KeyEventArgs e)
     {
@@ -74,7 +110,7 @@ public partial class TagsPage : System.Windows.Controls.UserControl
         preset.HexRgb = MenuColorHex.ToHexRgb(c);
         CompanionState.Save();
         TagItems.Items.Refresh();
-        FolderIconManager.RefreshAllFolderTags();
+        _ = RefreshFoldersAsync();
         ClickTrace.Ok($"id={preset.Id} hex={preset.HexRgb}");
         scope.MarkFinished();
     }
@@ -133,8 +169,41 @@ public partial class TagsPage : System.Windows.Controls.UserControl
                                       string.Equals(t.Id, preset.Id, StringComparison.OrdinalIgnoreCase));
         _tags!.Remove(preset);
         CompanionState.Save();
-        FolderIconManager.RefreshAllFolderTags();
+        _ = RefreshFoldersAsync();
         ClickTrace.Ok($"deleted id={preset.Id}");
         scope.MarkFinished();
+    }
+
+    /// <summary>Rewrites tagged folders in the background; protected ones go through the elevated worker.</summary>
+    async Task RefreshFoldersAsync()
+    {
+        await RefreshGate.WaitAsync();
+        try
+        {
+            var denied = await Task.Run(() => FolderIconManager.RefreshAllFolderTags());
+            foreach (var path in denied)
+            {
+                var error = await FolderWriteGuard.SyncAsync(Window.GetWindow(this), path);
+                if (error is null)
+                    continue;
+
+                ClickTrace.Step($"tag refresh failed '{path}': {error}");
+                FmMessageBox.Show(
+                    Window.GetWindow(this),
+                    UiText.Format("ChangeFolderFail", UiText.LeftToRight(path), error),
+                    "Folder Managing",
+                    MessageBoxButton.OK,
+                    MessageBoxImage.Warning);
+                return;
+            }
+        }
+        catch (Exception ex)
+        {
+            ClickTrace.Step($"tag refresh crashed: {ex.Message}");
+        }
+        finally
+        {
+            RefreshGate.Release();
+        }
     }
 }

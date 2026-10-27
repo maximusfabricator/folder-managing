@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: GPL-2.0-only
+// Copyright (C) 2026 maximusfabricator
+
 namespace FolderManaging.Core.Models;
 
 /// <summary>Per-folder metadata persisted for tagging, pinning, and (later) color tokens.</summary>

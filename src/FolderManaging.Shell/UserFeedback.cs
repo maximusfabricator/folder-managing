@@ -1,6 +1,9 @@
-using System.Runtime.InteropServices;
+// SPDX-License-Identifier: GPL-2.0-only
+// Copyright (C) 2026 maximusfabricator
+
 using FolderManaging.Core;
 using FolderManaging.Core.Diagnostics;
+using FolderManaging.Core.Interop;
 using FolderManaging.Core.Localization;
 using FolderManaging.Core.Storage;
 
@@ -9,17 +12,8 @@ namespace FolderManaging.Shell;
 /// <summary>Tells the user why a context-menu action did nothing (otherwise failures are only visible in the log).</summary>
 internal static class UserFeedback
 {
-    const uint MB_OK = 0x0000_0000;
-    const uint MB_YESNO = 0x0000_0004;
-    const uint MB_ICONWARNING = 0x0000_0030;
-    const uint MB_ICONERROR = 0x0000_0010;
-    const uint MB_SETFOREGROUND = 0x0001_0000;
-    const uint MB_TOPMOST = 0x0004_0000;
-    const int IDYES = 6;
     const string Caption = "Folder Manager";
-
-    [DllImport("user32.dll", CharSet = CharSet.Unicode)]
-    static extern int MessageBoxW(nint hWnd, string text, string caption, uint type);
+    const uint OnTop = NativeMessageBox.SetForeground | NativeMessageBox.Topmost;
 
     /// <summary>Shows the failure; for protected folders elevates (auto or after confirm). Returns <c>true</c> if elevated retry succeeded.</summary>
     internal static bool ReportFolderActionFailure(string action, string path, string? value, Exception ex)
@@ -42,13 +36,12 @@ internal static class UserFeedback
                 if (!autoElevate)
                 {
                     ClickTrace.Step("feedback: access denied dialog shown (auto-elevate off)");
-                    var answer = MessageBoxW(
-                        0,
-                        UiText.Format("UacProtected", path),
+                    var answer = NativeMessageBox.Show(
+                        UiText.Format("UacProtected", UiText.LeftToRight(path)),
                         Caption,
-                        MB_YESNO | MB_ICONWARNING | MB_SETFOREGROUND | MB_TOPMOST);
-                    ClickTrace.Step($"feedback: answer={(answer == IDYES ? "yes" : "no")}");
-                    if (answer != IDYES)
+                        NativeMessageBox.YesNo | NativeMessageBox.IconWarning | OnTop);
+                    ClickTrace.Step($"feedback: answer={(answer == NativeMessageBox.IdYes ? "yes" : "no")}");
+                    if (answer != NativeMessageBox.IdYes)
                         return false;
                 }
                 else
@@ -62,22 +55,20 @@ internal static class UserFeedback
                     var tip = string.Equals(elevErr, "User cancelled UAC.", StringComparison.Ordinal)
                         ? UiText.Get("UacOnce")
                         : elevErr;
-                    MessageBoxW(
-                        0,
+                    NativeMessageBox.Show(
                         UiText.Format("UacFail", tip),
                         Caption,
-                        MB_OK | MB_ICONERROR | MB_SETFOREGROUND | MB_TOPMOST);
+                        NativeMessageBox.Ok | NativeMessageBox.IconError | OnTop);
                 }
 
                 return ok;
             }
 
             ClickTrace.Step("feedback: error dialog shown");
-            MessageBoxW(
-                0,
-                UiText.Format("ChangeFolderFail", path, ex.Message),
+            NativeMessageBox.Show(
+                UiText.Format("ChangeFolderFail", UiText.LeftToRight(path), ex.Message),
                 Caption,
-                MB_OK | MB_ICONERROR | MB_SETFOREGROUND | MB_TOPMOST);
+                NativeMessageBox.Ok | NativeMessageBox.IconError | OnTop);
         }
         catch (Exception inner)
         {

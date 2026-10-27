@@ -1,3 +1,6 @@
+# SPDX-License-Identifier: GPL-2.0-only
+# Copyright (C) 2026 maximusfabricator
+
 <#
 .SYNOPSIS
 Registers an extracted dev layout using Add-AppxPackage -Register (alternative to installing the .msix).

@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: GPL-2.0-only
+// Copyright (C) 2026 maximusfabricator
+
 using Microsoft.Win32;
 
 namespace FolderManaging.Cli.Shell;

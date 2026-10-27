@@ -1,3 +1,6 @@
+# SPDX-License-Identifier: GPL-2.0-only
+# Copyright (C) 2026 maximusfabricator
+
 <#
 .SYNOPSIS
 Registers FolderManaging.ColorHue so Explorer can sort colored folders by rainbow (hue).

@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: GPL-2.0-only
+// Copyright (C) 2026 maximusfabricator
+
 using System.Drawing;
 using System.Security.Cryptography;
 using System.Text;
@@ -101,6 +104,13 @@ internal static class PerFolderIconCache
     /// <summary>Color tag for an arbitrary RGB tint.</summary>
     internal static string TagForRgb(Color tint) =>
         $"rgb{tint.R:x2}{tint.G:x2}{tint.B:x2}";
+
+    /// <summary>True when <paramref name="iconPath"/> exists and was written for this folder with <paramref name="colorTag"/>.</summary>
+    internal static bool IsCurrentIcon(string iconPath, string folderFullPath, string colorTag)
+    {
+        var prefix = $"{ComputeFolderHash(folderFullPath)}-{SanitizeTag(colorTag)}-";
+        return Path.GetFileName(iconPath).StartsWith(prefix, StringComparison.OrdinalIgnoreCase) && File.Exists(iconPath);
+    }
 
     static string EnsureFolderIconCacheDir()
     {

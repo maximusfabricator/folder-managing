@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: GPL-2.0-only
+// Copyright (C) 2026 maximusfabricator
+
 using System.Runtime.InteropServices;
 using System.Text;
 using FolderManaging.Core.Diagnostics;
@@ -77,9 +80,8 @@ public static class PropertySchemaRegistration
         }
 
         var xml = File.ReadAllText(sourcePropdescPath);
-        // One column title for the whole PC. It is the Windows display language at
-        // registration: ru / en / nb, otherwise English. The elevated worker refreshes
-        // it when that language changes.
+        // One column title for the whole PC, in the UI language at registration (Settings, otherwise Windows).
+        // The elevated worker refreshes it when that language changes.
         var colorLabel = System.Security.SecurityElement.Escape(UiText.Get("ColumnName"));
         var tagLabel = System.Security.SecurityElement.Escape(UiText.Get("TagColumnName"));
         xml = xml.Replace("__FM_COLUMN_LABEL__", colorLabel, StringComparison.Ordinal);
@@ -94,7 +96,7 @@ public static class PropertySchemaRegistration
     }
 
     /// <summary>
-    /// Rewrites the registered column title when the Windows display language changed.
+    /// Rewrites the registered column title when the UI language changed.
     /// No-op when the schema is already in that language, or when this process is not allowed to write HKLM.
     /// </summary>
     public static void SyncColumnLabelForCurrentLanguage()

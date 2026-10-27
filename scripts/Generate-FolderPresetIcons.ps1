@@ -1,3 +1,6 @@
+# SPDX-License-Identifier: GPL-2.0-only
+# Copyright (C) 2026 maximusfabricator
+
 <#
 .SYNOPSIS
   Regenerates coral/ocean/mint/plum .ico files (Windows shell folder shape + color tint).
