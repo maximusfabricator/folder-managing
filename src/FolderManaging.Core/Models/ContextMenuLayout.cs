@@ -11,6 +11,7 @@ public static class ContextMenuItemKinds
     public const string Pin = "pin";
     public const string QuickColor = "quick-color";
     public const string ColorPresets = "color-presets";
+    public const string ColorSchemes = "color-schemes";
     public const string RecentColors = "recent-colors";
     public const string SystemPalette = "system-palette";
     public const string Reset = "reset";
@@ -19,7 +20,7 @@ public static class ContextMenuItemKinds
     public const string Separator = "separator";
 
     public static readonly IReadOnlyList<string> Singletons =
-        new[] { Pin, QuickColor, RecentColors, ColorPresets, SystemPalette, Reset, Tags, Settings };
+        new[] { Pin, QuickColor, RecentColors, ColorPresets, ColorSchemes, SystemPalette, Reset, Tags, Settings };
 
     /// <summary>Kinds that render one menu line and therefore accept a custom label.</summary>
     public static bool SupportsLabel(string kind) => kind is QuickColor or Reset or Settings;
@@ -38,6 +39,7 @@ public static class ContextMenuItemKinds
         QuickColor => UiText.Get("KindQuick"),
         RecentColors => UiText.Get("KindRecent"),
         ColorPresets => UiText.Get("KindPresets"),
+        ColorSchemes => UiText.Get("KindSchemes"),
         SystemPalette => UiText.Get("KindPalette"),
         Reset => UiText.Get("KindReset"),
         Tags => UiText.Get("KindTags"),
@@ -78,6 +80,7 @@ public sealed class ContextMenuLayout
             new() { Kind = ContextMenuItemKinds.QuickColor },
             new() { Kind = ContextMenuItemKinds.RecentColors },
             new() { Kind = ContextMenuItemKinds.ColorPresets },
+            new() { Kind = ContextMenuItemKinds.ColorSchemes },
             new() { Kind = ContextMenuItemKinds.SystemPalette, Visible = false },
             new() { Kind = ContextMenuItemKinds.Separator },
             new() { Kind = ContextMenuItemKinds.Reset },

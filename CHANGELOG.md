@@ -1,5 +1,19 @@
 # Changelog
 
+## 2.1.1 — 2026-10-29
+
+### Changed
+
+- **Color schemes are now built in.** Vivid, Pastel, Earth, Ocean and Work status are no longer copied into *My colors*:
+  on the *Folder colors* page each scheme has its own switch. The scheme list and the *Add colors* button are gone —
+  you turn a scheme on or off, nothing is added. Schemes cannot be changed or deleted, and their names follow the app
+  language.
+- The colors of the schemes you turn on appear in the Explorer menu, each scheme under its own heading, and in the
+  quick color window. In the menu they are one block that can be moved or hidden on the Context menu page.
+- All schemes are off at first, also after the update. Colors you added from a scheme in 2.1.0 stay in *My colors*.
+- A folder keeps its color when you turn its scheme off.
+- *Export and import* now also saves which schemes are on.
+
 ## 2.1.0 — 2026-10-28
 
 ### New

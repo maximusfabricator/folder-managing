@@ -51,8 +51,16 @@ public static class FolderIconManager
             pairs.Add(new KeyValuePair<string, Color>(p.Id, c));
         }
 
+        pairs.AddRange(ColorSchemes.Enabled(doc).SelectMany(s => s.Colors)
+            .Select(c => new KeyValuePair<string, Color>(c.Id, c.Color)));
         FolderTintedPresetIconWriter.WritePresetSet(pairs, AppPaths.GeneratedIconsDirectory);
     }
+
+    /// <summary>Writes the menu icons of one color scheme (one capture of the stock folder glyph for all of them).</summary>
+    public static void EnsureSchemeMenuIcons(ColorScheme scheme) =>
+        FolderTintedPresetIconWriter.WritePresetSet(
+            scheme.Colors.Select(c => new KeyValuePair<string, Color>(c.Id, c.Color)),
+            AppPaths.GeneratedIconsDirectory);
 
     /// <summary>(Re)writes a single preset ICO immediately (used by the Companion when the user edits a color).</summary>
     public static string WritePresetIcon(string presetId, Color color) =>

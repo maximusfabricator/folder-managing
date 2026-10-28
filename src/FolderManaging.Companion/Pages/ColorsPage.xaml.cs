@@ -39,68 +39,38 @@ public partial class ColorsPage : System.Windows.Controls.UserControl
         }
 
         BindColors();
-        if (SchemeCombo.Items.Count == 0)
-            FillSchemeCombo();
+        BindSchemes();
     }
 
-    void FillSchemeCombo()
+    void BindSchemes()
     {
-        foreach (var scheme in ColorSchemes.All)
-        {
-            var row = new StackPanel { Orientation = System.Windows.Controls.Orientation.Horizontal };
-            foreach (var color in scheme.Colors)
-            {
-                MenuColorHex.TryParse(color.HexRgb, out var c);
-                row.Children.Add(new Border
-                {
-                    Width = 14,
-                    Height = 14,
-                    Margin = new Thickness(0, 0, 3, 0),
-                    CornerRadius = new CornerRadius(3),
-                    VerticalAlignment = VerticalAlignment.Center,
-                    Background = new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(c.R, c.G, c.B)),
-                    ToolTip = UiText.Get(color.NameKey),
-                });
-            }
-
-            row.Children.Add(new TextBlock
-            {
-                Text = UiText.Get(scheme.NameKey),
-                Margin = new Thickness(8, 0, 0, 0),
-                VerticalAlignment = VerticalAlignment.Center,
-            });
-            SchemeCombo.Items.Add(new ComboBoxItem { Content = row, Tag = scheme });
-        }
-
-        SchemeCombo.SelectedIndex = 0;
+        var doc = CompanionState.Document;
+        SchemeItems.ItemsSource = ColorSchemes.All.Select(s => new SchemeRow(s, ColorSchemes.IsEnabled(doc, s.Id))).ToList();
     }
 
-    void OnAddSchemeClick(object sender, RoutedEventArgs e)
+    async void OnSchemeToggleClick(object sender, RoutedEventArgs e)
     {
-        if (SchemeCombo.SelectedItem is not ComboBoxItem { Tag: ColorScheme scheme })
+        if (sender is not Wpf.Ui.Controls.ToggleSwitch { Tag: SchemeRow row } toggle)
             return;
 
-        using var scope = ClickTrace.Begin("companion", "add-scheme", detail: scheme.Id);
-        var doc = CompanionState.Document;
-        var before = doc.MenuColors.Count;
-        var added = ColorSchemes.AddTo(doc, scheme,
-            (schemeKey, colorKey) => UiText.Format("SchemeColorLabel", UiText.Get(schemeKey), UiText.Get(colorKey)));
-        if (added > 0)
-        {
-            CompanionState.Save();
-            foreach (var preset in doc.MenuColors.Skip(before))
-                TryWritePresetIco(preset);
-            BindColors();
-        }
-
-        ClickTrace.Ok($"added {added}");
+        var on = toggle.IsChecked == true;
+        using var scope = ClickTrace.Begin("companion", "color-scheme", detail: $"{row.Scheme.Id}={on}");
+        ColorSchemes.SetEnabled(CompanionState.Document, row.Scheme.Id, on);
+        CompanionState.Save();
+        ClickTrace.Ok($"enabled={string.Join(",", CompanionState.Document.EnabledColorSchemes)}");
         scope.MarkFinished();
-        FmMessageBox.Show(
-            Window.GetWindow(this),
-            added > 0 ? UiText.Format("SchemeAdded", added, UiText.Get(scheme.NameKey)) : UiText.Get("SchemeAlreadyAdded"),
-            "Folder Managing",
-            MessageBoxButton.OK,
-            MessageBoxImage.Information);
+        if (!on)
+            return;
+
+        // Written now so the first right-click after turning a scheme on does not wait for its icons.
+        try
+        {
+            await Task.Run(() => FolderIconManager.EnsureSchemeMenuIcons(row.Scheme));
+        }
+        catch (Exception ex)
+        {
+            ClickTrace.Step($"scheme icons failed: {ex.Message}");
+        }
     }
 
     void OnUnloaded(object sender, RoutedEventArgs e)
@@ -115,6 +85,7 @@ public partial class ColorsPage : System.Windows.Controls.UserControl
     {
         var editingId = _editing?.Id;
         BindColors();
+        BindSchemes();
         if (editingId is null)
             return;
 
@@ -393,4 +364,26 @@ public partial class ColorsPage : System.Windows.Controls.UserControl
             (byte)Math.Round((g + m) * 255),
             (byte)Math.Round((b + m) * 255));
     }
+}
+
+/// <summary>A built-in color scheme on the Colors page: name, swatches and whether it is on.</summary>
+public sealed class SchemeRow(ColorScheme scheme, bool isOn)
+{
+    public ColorScheme Scheme { get; } = scheme;
+
+    public string Name => Scheme.Name;
+
+    public bool IsOn { get; } = isOn;
+
+    public IReadOnlyList<SchemeSwatch> Swatches { get; } = scheme.Colors
+        .Select(c => new SchemeSwatch(UiText.Get(c.NameKey), c.Color))
+        .ToList();
+}
+
+public sealed class SchemeSwatch(string name, Color color)
+{
+    public string Name { get; } = name;
+
+    public System.Windows.Media.Brush Brush { get; } =
+        new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(color.R, color.G, color.B));
 }

@@ -4,6 +4,7 @@
 using System.Windows;
 using System.Windows.Controls;
 using FolderManaging.Companion.Localization;
+using FolderManaging.Core;
 using FolderManaging.Core.Diagnostics;
 using FolderManaging.Core.Localization;
 using FolderManaging.Core.Models;
@@ -291,6 +292,11 @@ public partial class ContextMenuPage : System.Windows.Controls.UserControl
                 0 => UiText.Get("NotePresetsEmpty"),
                 var n => UiText.Format("NotePresetsCount", n),
             },
+            ContextMenuItemKinds.ColorSchemes => ColorSchemes.Enabled(doc).Count switch
+            {
+                0 => UiText.Get("NoteSchemesOff"),
+                var n => UiText.Format("NoteSchemesCount", n),
+            },
             ContextMenuItemKinds.RecentColors => UiText.Get("NoteRecent"),
             ContextMenuItemKinds.SystemPalette => UiText.Get("NotePalette"),
             ContextMenuItemKinds.Reset => UiText.Get("NoteReset"),
@@ -310,81 +316,24 @@ public partial class ContextMenuPage : System.Windows.Controls.UserControl
         PreviewRootTitle.Text = $"{_layout.RootTitle}  ›";
         PreviewRootTitle.SetResourceReference(WpfTextBlock.ForegroundProperty, "TextFillColorPrimaryBrush");
 
-        var lines = new List<(string? Text, bool Dim)>();
-        var doc = CompanionState.Document;
-
-        foreach (var entry in _layout.Entries.Where(e => e.Visible || e.Kind == ContextMenuItemKinds.Separator))
+        // The same rows the Explorer menu builds; Pin and Unpin share a row because Explorer shows only one of them.
+        var lines = new List<(string Text, bool Dim)>();
+        foreach (var line in ContextMenuPlan.Build(CompanionState.Document, _layout))
         {
-            if (!entry.Visible && entry.Kind != ContextMenuItemKinds.Separator)
+            if (line.Kind == "unpin")
                 continue;
-
-            var label = string.IsNullOrWhiteSpace(entry.Label) ? ContextMenuItemKinds.DefaultLabel(entry.Kind) : entry.Label;
-            switch (entry.Kind)
-            {
-                case ContextMenuItemKinds.Separator:
-                    lines.Add(("──────────────", true));
-                    break;
-                case ContextMenuItemKinds.Pin:
-                    lines.Add((UiText.Get("Pin") + " / " + UiText.Get("Unpin"), false));
-                    break;
-                case ContextMenuItemKinds.ColorPresets:
-                    foreach (var r in PresetRows(doc))
-                    {
-                        var t = !string.IsNullOrWhiteSpace(r.Label)
-                            ? UiText.Format("ColorLine", r.Label)
-                            : UiText.Format("ColorHex", r.HexRgb?.Trim().TrimStart('#').ToUpperInvariant() ?? "");
-                        lines.Add((t, false));
-                    }
-                    break;
-                case ContextMenuItemKinds.RecentColors:
-                    foreach (var name in RecentNames(doc))
-                        lines.Add((UiText.Format("RecentLine", name), false));
-                    break;
-                case ContextMenuItemKinds.SystemPalette:
-                    foreach (var key in new[] { "PalRed", "PalOrange", "PalYellow", "PalLime", "PalGreen", "PalTeal", "PalCyan", "PalBlue", "PalIndigo", "PalPurple", "PalPink", "PalBrown", "PalGray" })
-                        lines.Add((UiText.Format("ColorLine", UiText.Get(key)), false));
-                    break;
-                case ContextMenuItemKinds.Tags:
-                    foreach (var t in TagRows(doc))
-                        lines.Add((UiText.Format("TagLine", t.Label), false));
-                    break;
-                default:
-                    lines.Add((label, false));
-                    break;
-            }
+            lines.Add((line.Kind == "pin" ? UiText.Get("Pin") + " / " + UiText.Get("Unpin") : line.Title, line.Disabled));
         }
 
         PreviewPanel.Children.Clear();
         foreach (var (text, dim) in lines)
-        {
-            if (text is null)
-                continue;
             PreviewPanel.Children.Add(ThemedText(text, 13, secondary: dim, wrap: true, topMargin: 4));
-        }
 
-        var count = lines.Count(l => l.Text is not null && !l.Dim);
+        var count = lines.Count(l => !l.Dim);
         PreviewCount.Text = count == 0
             ? UiText.Get("MenuEmpty")
             : UiText.Format("MenuLineCount", count);
         PreviewCount.SetResourceReference(WpfTextBlock.ForegroundProperty, "TextFillColorSecondaryBrush");
-    }
-
-    /// <summary>The names the Explorer menu shows for the last three colors (same rules as the shell's menu builder).</summary>
-    static IEnumerable<string> RecentNames(AppStateDocument doc)
-    {
-        foreach (var token in (doc.RecentColors ?? []).Take(3))
-        {
-            if (token.StartsWith("rgb-", StringComparison.OrdinalIgnoreCase))
-            {
-                if (MenuColorHex.TryParse(token[4..], out var rgb))
-                    yield return "#" + MenuColorHex.ToHexRgb(rgb);
-                continue;
-            }
-
-            var preset = doc.MenuColors.FirstOrDefault(c => string.Equals(c.Id, token, StringComparison.OrdinalIgnoreCase));
-            if (preset is not null)
-                yield return string.IsNullOrWhiteSpace(preset.Label) ? "#" + preset.HexRgb.Trim().TrimStart('#').ToUpperInvariant() : preset.Label;
-        }
     }
 
     static List<MenuColorPreset> PresetRows(AppStateDocument doc) =>

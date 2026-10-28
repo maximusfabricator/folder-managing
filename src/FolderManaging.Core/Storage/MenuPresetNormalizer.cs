@@ -15,6 +15,7 @@ public static class MenuPresetNormalizer
     {
         doc.MenuColors ??= new List<MenuColorPreset>();
         doc.MenuTags ??= new List<MenuTagPreset>();
+        doc.EnabledColorSchemes ??= new List<string>();
 
         MigrateLegacyColorIds(doc);
 

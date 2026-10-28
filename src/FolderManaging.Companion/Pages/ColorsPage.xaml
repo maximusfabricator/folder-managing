@@ -7,6 +7,7 @@
              xmlns:loc="clr-namespace:FolderManaging.Companion.Localization"
              xmlns:models="clr-namespace:FolderManaging.Core.Models;assembly=FolderManaging.Core"
              xmlns:conv="clr-namespace:FolderManaging.Companion.Converters"
+             xmlns:pages="clr-namespace:FolderManaging.Companion.Pages"
              Loaded="OnLoaded">
     <UserControl.Resources>
         <conv:HexRgbToBrushConverter x:Key="HexBrush" />
@@ -28,22 +29,17 @@
 
         <!-- Hidden while the editor is open: in a small window the list would get no room at all. -->
         <WrapPanel x:Name="ColorsToolbar" Grid.Row="1" Margin="0,16,0,0" Orientation="Horizontal">
-            <ui:Button Margin="0,0,24,8" VerticalAlignment="Center"
+            <ui:Button Margin="0,0,0,8" VerticalAlignment="Center"
                        Appearance="Primary"
                        Icon="{ui:SymbolIcon Symbol=Add24}"
                        Content="{loc:Loc AddColor}"
                        Click="OnAddColorClick" />
-            <TextBlock Style="{StaticResource FmTextSecondary}" Margin="0,0,8,8" VerticalAlignment="Center" Opacity="0.8"
-                       Text="{loc:Loc SchemesLabel}" />
-            <ComboBox x:Name="SchemeCombo" Margin="0,0,8,8" MinWidth="240" VerticalAlignment="Center" />
-            <ui:Button x:Name="AddSchemeButton" Margin="0,0,0,8" VerticalAlignment="Center"
-                       Appearance="Secondary"
-                       Icon="{ui:SymbolIcon Symbol=ColorBackground24}"
-                       Content="{loc:Loc AddScheme}"
-                       Click="OnAddSchemeClick" />
         </WrapPanel>
 
-        <ScrollViewer Grid.Row="2" Margin="0,16,0,0" VerticalScrollBarVisibility="Auto">
+        <ScrollViewer Grid.Row="2" Margin="0,8,0,0" VerticalScrollBarVisibility="Auto">
+          <StackPanel>
+            <TextBlock Style="{StaticResource FmText}" Margin="0,0,0,8" FontSize="16" FontWeight="SemiBold"
+                       TextWrapping="Wrap" Text="{loc:Loc MyColorsTitle}" />
             <ItemsControl x:Name="ColorItems">
                 <ItemsControl.ItemTemplate>
                     <DataTemplate DataType="{x:Type models:MenuColorPreset}">
@@ -96,6 +92,49 @@
                     </DataTemplate>
                 </ItemsControl.ItemTemplate>
             </ItemsControl>
+
+            <TextBlock Style="{StaticResource FmText}" Margin="0,20,0,0" FontSize="16" FontWeight="SemiBold"
+                       TextWrapping="Wrap" Text="{loc:Loc SchemesTitle}" />
+            <TextBlock Style="{StaticResource FmTextSecondary}" Margin="0,4,0,8" Opacity="0.65" TextWrapping="Wrap"
+                       Text="{loc:Loc SchemesHint}" />
+            <ItemsControl x:Name="SchemeItems">
+                <ItemsControl.ItemTemplate>
+                    <DataTemplate DataType="{x:Type pages:SchemeRow}">
+                        <ui:CardControl Margin="0,0,0,4" Padding="16,12">
+                            <ui:CardControl.Header>
+                                <StackPanel VerticalAlignment="Center">
+                                    <TextBlock Style="{StaticResource FmText}" FontSize="14" TextWrapping="Wrap"
+                                               Text="{Binding Name, Mode=OneTime}" />
+                                    <ItemsControl Margin="0,6,0,0" Focusable="False" ItemsSource="{Binding Swatches, Mode=OneTime}">
+                                        <ItemsControl.ItemsPanel>
+                                            <ItemsPanelTemplate>
+                                                <WrapPanel Orientation="Horizontal" />
+                                            </ItemsPanelTemplate>
+                                        </ItemsControl.ItemsPanel>
+                                        <ItemsControl.ItemTemplate>
+                                            <DataTemplate DataType="{x:Type pages:SchemeSwatch}">
+                                                <Border Width="22" Height="22" Margin="0,0,4,0" CornerRadius="4"
+                                                        BorderBrush="{DynamicResource ControlStrongStrokeColorDefaultBrush}"
+                                                        BorderThickness="1"
+                                                        Background="{Binding Brush, Mode=OneTime}"
+                                                        ToolTipService.ToolTip="{Binding Name, Mode=OneTime}" />
+                                            </DataTemplate>
+                                        </ItemsControl.ItemTemplate>
+                                    </ItemsControl>
+                                </StackPanel>
+                            </ui:CardControl.Header>
+                            <ui:ToggleSwitch IsChecked="{Binding IsOn, Mode=OneTime}"
+                                             OffContent="{loc:Loc Off}"
+                                             OnContent="{loc:Loc On}"
+                                             AutomationProperties.Name="{Binding Name, Mode=OneTime}"
+                                             ToolTipService.ToolTip="{loc:Loc ShowInMenu}"
+                                             Tag="{Binding}"
+                                             Click="OnSchemeToggleClick" />
+                        </ui:CardControl>
+                    </DataTemplate>
+                </ItemsControl.ItemTemplate>
+            </ItemsControl>
+          </StackPanel>
         </ScrollViewer>
 
         <ui:Card x:Name="ColorEditorCard" Grid.Row="3" Margin="0,12,0,0" Padding="20,16" Visibility="Collapsed">

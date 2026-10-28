@@ -178,6 +178,7 @@ static partial class Program
         });
 
         FeatureChecks();
+        SchemeChecks();
 
         Console.WriteLine(_failed == 0 ? "ALL PASSED" : $"{_failed} FAILED");
         return _failed == 0 ? 0 : 1;

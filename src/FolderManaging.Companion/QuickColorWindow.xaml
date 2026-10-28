@@ -89,6 +89,12 @@
                            Click="OnSaveColorClick" />
             </Grid>
 
+            <StackPanel x:Name="SchemesPanel" Margin="0,12,0,0" Visibility="Collapsed">
+                <TextBlock Style="{StaticResource FmTextSecondary}" FontSize="12" Opacity="0.65" Margin="0,0,0,4"
+                           Text="{loc:Loc SchemesTitle}" />
+                <StackPanel x:Name="SchemeList" />
+            </StackPanel>
+
             <TextBlock Style="{StaticResource FmTextSecondary}" Margin="0,16,0,4" FontSize="12" Opacity="0.65" Text="{loc:Loc Folder}" />
             <Grid>
                 <Grid.ColumnDefinitions>

@@ -15,7 +15,9 @@ Created by **maximusfabricator** · Free software under the [GNU General Public 
 - **Several folders at once.** Select folders in Explorer and color, reset or tag all of them; folders that need
   administrator rights share one Windows prompt.
 - **Recent colors and color codes.** The menu shows your last three colors; the color window takes a code such as
-  `#3A86FF` and saves any color to *My colors*. Ready-made color schemes are on the Colors page.
+  `#3A86FF` and saves any color to *My colors*.
+- **Color schemes.** Five built-in schemes (Vivid, Pastel, Earth, Ocean, Work status). Turn one on in *Folder colors*
+  and its colors appear, grouped by scheme, in the right-click menu and in the color window.
 - **Quick access.** Pin or unpin a folder from the same menu; the menu always shows the one that applies. A pinned
   folder shows its color in the navigation pane too (see the FAQ).
 - **Your own menu.** Show, hide, rename and reorder the items of the right-click menu, add separators.

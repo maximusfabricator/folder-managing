@@ -284,15 +284,12 @@ static partial class Program
             Expect(doc.RecentColors.SequenceEqual(["b", "a", "green", "red", "blue"]), $"recent: {string.Join(",", doc.RecentColors)}");
         });
 
-        Check("color schemes: adding twice adds nothing new; Save to my colors reuses a color", () =>
+        Check("Save to my colors: a color already there is reused", () =>
         {
             var doc = new AppStateDocument();
-            var scheme = ColorSchemes.All.First(s => s.Id == "pastel");
-            var added = ColorSchemes.AddTo(doc, scheme, (s, c) => $"{c} ({s})");
-            Expect(added == scheme.Colors.Count && ColorSchemes.AddTo(doc, scheme, (s, c) => "") == 0, $"added {added}");
-            var id = ColorSchemes.SaveToMyColors(doc, "#" + scheme.Colors[0].HexRgb.ToLowerInvariant());
-            Expect(id == doc.MenuColors[0].Id && doc.MenuColors.Count == scheme.Colors.Count, "duplicate color saved");
-            Expect(ColorSchemes.All.All(s => s.Colors.All(c => MenuColorHex.TryParse(c.HexRgb, out _))), "bad scheme color");
+            var first = ColorSchemes.SaveToMyColors(doc, "#f4b6c2");
+            var second = ColorSchemes.SaveToMyColors(doc, "F4B6C2");
+            Expect(first == "custom-01" && second == first && doc.MenuColors.Count == 1, $"ids {first}/{second}, colors {doc.MenuColors.Count}");
         });
 
         Check("menu layout: Recent colors joins a saved layout right after Quick color", () =>

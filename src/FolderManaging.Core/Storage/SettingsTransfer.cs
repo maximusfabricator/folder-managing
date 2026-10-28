@@ -22,6 +22,9 @@ public sealed class SettingsExport
 
     public List<MenuTagPreset> MenuTags { get; set; } = new();
 
+    /// <summary>Built-in color schemes that are on; <c>null</c> in files from 2.1.0, which leave the current choice alone.</summary>
+    public List<string>? EnabledColorSchemes { get; set; }
+
     public ContextMenuLayout? ContextMenu { get; set; }
 
     public AppThemePreference? Theme { get; set; }
@@ -57,6 +60,7 @@ public static class SettingsTransfer
             AppVersion = appVersion,
             MenuColors = doc.MenuColors.Select(c => new MenuColorPreset { Id = c.Id, Label = c.Label, HexRgb = c.HexRgb }).ToList(),
             MenuTags = doc.MenuTags.Select(t => new MenuTagPreset { Id = t.Id, Label = t.Label, HexRgb = t.HexRgb }).ToList(),
+            EnabledColorSchemes = (doc.EnabledColorSchemes ?? []).ToList(),
             ContextMenu = doc.ContextMenu,
             Theme = doc.Theme,
             Language = doc.Language,
@@ -126,6 +130,8 @@ public static class SettingsTransfer
             tags++;
         }
 
+        if (import.EnabledColorSchemes is not null)
+            doc.EnabledColorSchemes = import.EnabledColorSchemes.Where(id => !string.IsNullOrWhiteSpace(id)).ToList();
         if (import.ContextMenu is not null)
             doc.ContextMenu = import.ContextMenu;
         if (import.Theme is { } theme)

@@ -39,6 +39,9 @@ public static class MenuStateReader
         tint = default;
         if (string.IsNullOrWhiteSpace(colorId))
             return false;
+        // Scheme colors resolve whether or not the scheme is on: a folder keeps its color when the scheme is turned off.
+        if (ColorSchemes.TryGetColor(colorId, out tint))
+            return true;
 
         var doc = GetMerged();
         var row = doc.MenuColors.FirstOrDefault(c =>

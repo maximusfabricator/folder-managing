@@ -23,6 +23,12 @@ public sealed class AppStateDocument
     public List<MenuTagPreset> MenuTags { get; set; } = new();
 
     /// <summary>
+    /// Ids of the built-in color schemes shown in the menu (<see cref="ColorSchemes"/>). Empty for new users and
+    /// for files from 2.1.0, so the menu stays as it was until the user turns a scheme on.
+    /// </summary>
+    public List<string> EnabledColorSchemes { get; set; } = new();
+
+    /// <summary>
     /// <c>true</c> after the four default tags have been offered once.
     /// A missing value on an already saved file means the user already had a tag list, so defaults must not return.
     /// </summary>

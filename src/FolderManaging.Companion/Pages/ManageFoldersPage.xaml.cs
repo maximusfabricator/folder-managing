@@ -48,6 +48,8 @@ public sealed class ManagedFolderRow
 
         if (token.StartsWith("rgb-", StringComparison.OrdinalIgnoreCase))
             return "#" + token["rgb-".Length..].ToUpperInvariant();
+        if (ColorSchemes.TryFindColor(token, out var scheme, out var schemeColor))
+            return ColorSchemes.DisplayName(scheme, schemeColor);
 
         var preset = doc.MenuColors.FirstOrDefault(c =>
             string.Equals(c.Id, token, StringComparison.OrdinalIgnoreCase));

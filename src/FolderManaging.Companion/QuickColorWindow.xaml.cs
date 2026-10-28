@@ -25,6 +25,12 @@ public partial class QuickColorWindow : FluentWindow
     List<string> _folderPaths;
     bool _syncing;
 
+    /// <summary>
+    /// The color id of the last swatch clicked (a scheme color or one of My colors). While the wheel still shows its
+    /// color, Color applies that id, so the folder keeps the scheme color's name and sorting like a menu click.
+    /// </summary>
+    (string Id, MediaColor Color)? _picked;
+
     public QuickColorWindow(IReadOnlyList<string>? folderPaths = null)
     {
         InitializeComponent();
@@ -37,9 +43,10 @@ public partial class QuickColorWindow : FluentWindow
     {
         ShowFolders();
         var recent = RecentColors();
-        Wheel.SelectedColor = recent.Count > 0 ? recent[0] : MediaColor.FromRgb(0x00, 0x7A, 0xCC);
+        Wheel.SelectedColor = recent.Count > 0 ? recent[0].Color : MediaColor.FromRgb(0x00, 0x7A, 0xCC);
         SyncFromWheel();
         FillRecent(recent);
+        FillSchemes();
     }
 
     void ShowFolders()
@@ -57,18 +64,20 @@ public partial class QuickColorWindow : FluentWindow
         FolderPathText.ToolTip = string.Join("\n", _folderPaths.Select(UiText.LeftToRight));
     }
 
-    /// <summary>Colors last used on folders, newest first.</summary>
-    static List<MediaColor> RecentColors()
+    /// <summary>Colors last used on folders, newest first; <c>Id</c> is <c>null</c> for a color from the wheel.</summary>
+    static List<(string? Id, MediaColor Color)> RecentColors()
     {
         var doc = CompanionState.Document;
-        var colors = new List<MediaColor>();
+        var colors = new List<(string?, MediaColor)>();
         foreach (var token in doc.RecentColors ?? [])
         {
-            var hex = token.StartsWith("rgb-", StringComparison.OrdinalIgnoreCase)
-                ? token[4..]
-                : doc.MenuColors.FirstOrDefault(c => string.Equals(c.Id, token, StringComparison.OrdinalIgnoreCase))?.HexRgb;
-            if (MenuColorHex.TryParse(hex, out var c))
-                colors.Add(MediaColor.FromRgb(c.R, c.G, c.B));
+            var isRgb = token.StartsWith("rgb-", StringComparison.OrdinalIgnoreCase);
+            System.Drawing.Color c;
+            var found = isRgb
+                ? MenuColorHex.TryParse(token[4..], out c)
+                : MenuStateReader.TryGetMenuTint(token, out c);
+            if (found)
+                colors.Add((isRgb ? null : token, MediaColor.FromRgb(c.R, c.G, c.B)));
             if (colors.Count == RecentSwatches)
                 break;
         }
@@ -76,33 +85,73 @@ public partial class QuickColorWindow : FluentWindow
         return colors;
     }
 
-    void FillRecent(IReadOnlyList<MediaColor> colors)
+    void FillRecent(IReadOnlyList<(string? Id, MediaColor Color)> colors)
     {
         RecentPanel.Visibility = colors.Count == 0 ? Visibility.Collapsed : Visibility.Visible;
-        RecentList.ItemsSource = colors.Select(c =>
+        RecentList.ItemsSource = colors.Select(c => Swatch(c.Id, c.Color, null)).ToList();
+    }
+
+    /// <summary>One row per color scheme that is turned on: its name, then its colors.</summary>
+    void FillSchemes()
+    {
+        var schemes = ColorSchemes.Enabled(CompanionState.Document);
+        SchemesPanel.Visibility = schemes.Count == 0 ? Visibility.Collapsed : Visibility.Visible;
+        SchemeList.Children.Clear();
+        foreach (var scheme in schemes)
         {
-            var hex = $"{c.R:X2}{c.G:X2}{c.B:X2}";
-            var swatch = new Button
+            var row = new System.Windows.Controls.Grid { Margin = new Thickness(0, 0, 0, 4) };
+            row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(120) });
+            row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+            var name = new System.Windows.Controls.TextBlock
             {
-                Width = 28,
-                Height = 28,
-                Margin = new Thickness(0, 0, 6, 0),
-                Padding = new Thickness(0),
-                Cursor = System.Windows.Input.Cursors.Hand,
-                ToolTip = "#" + hex,
-                Background = new SolidColorBrush(c),
-                BorderBrush = (System.Windows.Media.Brush)FindResource("ControlStrongStrokeColorDefaultBrush"),
-                BorderThickness = new Thickness(1),
-                Template = SwatchTemplate(),
+                Text = scheme.Name,
+                FontSize = 12,
+                TextWrapping = TextWrapping.Wrap,
+                VerticalAlignment = VerticalAlignment.Center,
+                Margin = new Thickness(0, 0, 8, 0),
             };
-            System.Windows.Automation.AutomationProperties.SetName(swatch, "#" + hex);
-            swatch.Click += (_, _) =>
+            name.SetResourceReference(System.Windows.Controls.TextBlock.ForegroundProperty, "TextFillColorSecondaryBrush");
+            row.Children.Add(name);
+
+            var swatches = new WrapPanel { Orientation = System.Windows.Controls.Orientation.Horizontal };
+            foreach (var color in scheme.Colors)
             {
-                Wheel.SelectedColor = c;
-                SyncFromWheel();
-            };
-            return swatch;
-        }).ToList();
+                var c = color.Color;
+                swatches.Children.Add(Swatch(color.Id, MediaColor.FromRgb(c.R, c.G, c.B), ColorSchemes.DisplayName(scheme, color)));
+            }
+
+            System.Windows.Controls.Grid.SetColumn(swatches, 1);
+            row.Children.Add(swatches);
+            SchemeList.Children.Add(row);
+        }
+    }
+
+    /// <param name="id">Color id applied when this swatch was the last pick; <c>null</c> applies the RGB value.</param>
+    Button Swatch(string? id, MediaColor c, string? name)
+    {
+        var hex = $"{c.R:X2}{c.G:X2}{c.B:X2}";
+        var tip = name is null ? "#" + hex : $"{name} · #{hex}";
+        var swatch = new Button
+        {
+            Width = 28,
+            Height = 28,
+            Margin = new Thickness(0, 0, 6, 0),
+            Padding = new Thickness(0),
+            Cursor = System.Windows.Input.Cursors.Hand,
+            ToolTip = tip,
+            Background = new SolidColorBrush(c),
+            BorderBrush = (System.Windows.Media.Brush)FindResource("ControlStrongStrokeColorDefaultBrush"),
+            BorderThickness = new Thickness(1),
+            Template = SwatchTemplate(),
+        };
+        System.Windows.Automation.AutomationProperties.SetName(swatch, tip);
+        swatch.Click += (_, _) =>
+        {
+            Wheel.SelectedColor = c;
+            SyncFromWheel();
+            _picked = id is null ? null : (id, c);
+        };
+        return swatch;
     }
 
     static ControlTemplate SwatchTemplate()
@@ -246,7 +295,9 @@ public partial class QuickColorWindow : FluentWindow
         SetBusy(true);
         try
         {
-            var actions = _folderPaths.Select(p => new FolderAction(FolderActionKind.Rgb, p, hex)).ToList();
+            var actions = _picked is { } picked && picked.Color == Wheel.SelectedColor
+                ? _folderPaths.Select(p => new FolderAction(FolderActionKind.Color, p, picked.Id)).ToList()
+                : _folderPaths.Select(p => new FolderAction(FolderActionKind.Rgb, p, hex)).ToList();
             var result = await FolderWriteGuard.RunAsync(this, actions);
             if (result.Done.Count > 0)
                 ColorSortTip.TryShowOnce();
