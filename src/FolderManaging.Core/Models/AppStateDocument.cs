@@ -5,9 +5,18 @@ namespace FolderManaging.Core.Models;
 
 public sealed class AppStateDocument
 {
-    public int Version { get; set; } = 1;
+    /// <summary>2 since 2.1.0: folder ids and recent colors.</summary>
+    public const int CurrentVersion = 2;
+
+    /// <summary>How many colors the "Recent colors" rows keep.</summary>
+    public const int RecentColorsLimit = 5;
+
+    public int Version { get; set; } = CurrentVersion;
 
     public List<FolderStateEntry> Folders { get; set; } = new();
+
+    /// <summary>Last used folder colors, newest first: a preset id or <c>rgb-rrggbb</c>.</summary>
+    public List<string> RecentColors { get; set; } = new();
 
     public List<MenuColorPreset> MenuColors { get; set; } = new();
 
@@ -43,6 +52,18 @@ public sealed class AppStateDocument
     public bool ColorSortTipShown { get; set; }
 
     public ContextMenuLayout GetContextMenuLayout() => ContextMenuLayout.Normalize(ContextMenu);
+
+    /// <summary>Moves <paramref name="colorToken"/> to the front of <see cref="RecentColors"/>.</summary>
+    public void RememberRecentColor(string colorToken)
+    {
+        if (string.IsNullOrWhiteSpace(colorToken))
+            return;
+        RecentColors ??= new List<string>();
+        RecentColors.RemoveAll(c => string.Equals(c, colorToken, StringComparison.OrdinalIgnoreCase));
+        RecentColors.Insert(0, colorToken.ToLowerInvariant());
+        if (RecentColors.Count > RecentColorsLimit)
+            RecentColors.RemoveRange(RecentColorsLimit, RecentColors.Count - RecentColorsLimit);
+    }
 
     /// <summary>Restores app settings to defaults. Folder data, color presets and tags are kept.</summary>
     public void ResetSettingsToDefaults()

@@ -20,6 +20,9 @@ namespace FolderManaging.Core;
 public static class ElevatedCliInvoker
 {
     const string PipePrefix = "FolderManaging.Elevated.";
+
+    /// <summary>Error text of <see cref="EnsureWorkerStarted"/> when the user said No to UAC.</summary>
+    public const string UacCancelledMessage = "User cancelled UAC.";
     const int ConnectTimeoutMs = 1_500;
     const int StartTimeoutMs = 90_000;
 
@@ -90,7 +93,7 @@ public static class ElevatedCliInvoker
         }
         catch (System.ComponentModel.Win32Exception ex) when (ex.NativeErrorCode == 1223)
         {
-            errorMessage = "User cancelled UAC.";
+            errorMessage = UacCancelledMessage;
             ClickTrace.Step("elevated worker: user cancelled UAC");
             return false;
         }
@@ -293,66 +296,19 @@ public static class ElevatedCliInvoker
                     return "OK";
                 case "SHUTDOWN":
                     return "OK";
-                case "COLOR":
+                case "COLOR" or "RGB" or "RESET" or "TAG" or "UNTAG" or "SYNC" or "UNBLOCK":
                 {
-                    if (parts.Length < 3)
-                        return "ERR\tCOLOR needs path and colorId";
-                    var path = parts[1];
-                    var colorId = parts[2];
-                    FolderIconManager.Apply(path, colorId);
-                    new FolderStateEditor(new JsonFolderStateStore())
-                        .SetColorTokenAsync(path, colorId, CancellationToken.None).GetAwaiter().GetResult();
-                    return "OK";
-                }
-                case "RGB":
-                {
-                    if (parts.Length < 3)
-                        return "ERR\tRGB needs path and hex";
-                    var path = parts[1];
-                    var hex = parts[2].Trim().TrimStart('#');
-                    if (!MenuColorHex.TryParse(hex, out var tint))
-                        return "ERR\tbad hex";
-                    FolderIconManager.ApplyRgb(path, tint);
-                    new FolderStateEditor(new JsonFolderStateStore())
-                        .SetColorTokenAsync(path, $"rgb-{hex.ToLowerInvariant()}", CancellationToken.None)
-                        .GetAwaiter().GetResult();
-                    return "OK";
-                }
-                case "RESET":
-                {
-                    if (parts.Length < 2)
-                        return "ERR\tRESET needs path";
-                    var path = parts[1];
-                    FolderIconManager.RemoveCustomizationIfOurs(path);
-                    new FolderStateEditor(new JsonFolderStateStore())
-                        .ResetFolderAsync(path, CancellationToken.None).GetAwaiter().GetResult();
-                    return "OK";
-                }
-                case "UNTAG":
-                {
-                    if (parts.Length < 3)
-                        return "ERR\tUNTAG needs path and tagId";
-                    var path = parts[1];
-                    new FolderStateEditor(new JsonFolderStateStore())
-                        .RemoveTagAsync(path, parts[2], CancellationToken.None).GetAwaiter().GetResult();
-                    FolderIconManager.SyncFolderTags(path);
-                    return "OK";
-                }
-                case "TAG":
-                {
-                    if (parts.Length < 3)
-                        return "ERR\tTAG needs path and tagId";
-                    var path = parts[1];
-                    new FolderStateEditor(new JsonFolderStateStore())
-                        .UpsertTagAsync(path, parts[2], CancellationToken.None).GetAwaiter().GetResult();
-                    FolderIconManager.SyncFolderTags(path);
-                    return "OK";
-                }
-                case "SYNC":
-                {
-                    if (parts.Length < 2)
-                        return "ERR\tSYNC needs path";
-                    FolderIconManager.SyncFolderTags(parts[1]);
+                    if (parts.Length < 2 || string.IsNullOrWhiteSpace(parts[1]))
+                        return $"ERR\t{op} needs a path";
+                    var value = parts.Length > 2 ? parts[2] : null;
+                    if (op == "UNBLOCK")
+                    {
+                        FolderDiagnostics.RemoveDownloadMarks(parts[1]);
+                        return "OK";
+                    }
+
+                    FolderAction.TryParseKind(op, out var kind);
+                    FolderBatch.Execute(new FolderAction(kind, parts[1], value));
                     return "OK";
                 }
                 case "LANGUAGE":
@@ -379,7 +335,8 @@ public static class ElevatedCliInvoker
             "reset" => $"RESET\t{path}",
             "tag" when !string.IsNullOrWhiteSpace(value) => $"TAG\t{path}\t{value}",
             "untag" when !string.IsNullOrWhiteSpace(value) => $"UNTAG\t{path}\t{value}",
-            "sync" => $"SYNC\t{path}",
+            "sync" => string.IsNullOrWhiteSpace(value) ? $"SYNC\t{path}" : $"SYNC\t{path}\t{value}",
+            "unblock" => $"UNBLOCK\t{path}",
             _ => null,
         };
     }

@@ -9,12 +9,13 @@ Builds the user edition and the single offline installer: artifacts\release\Fold
 1. Publishes Shell / CLI / Companion with -p:FmEdition=User (no dev diagnostics).
 2. Packs sparse\AppxManifest.User.xml into FolderManaging.msix and signs it with the release certificate
    (created on first run under artifacts\certs, never committed).
-3. Downloads the .NET 8 Desktop Runtime installer once (artifacts\cache) — the shell extension needs it.
+3. Downloads the .NET 10 Desktop Runtime installer once (artifacts\cache) — the shell extension needs it.
 4. Publishes FolderManaging.Setup twice: a small framework-dependent maintenance copy (uninstall), then the
    self-contained Setup.exe with everything embedded.
 
 .NOTES
-Requires the Windows SDK (makeappx.exe, signtool.exe) and the .NET 8 SDK. Run from any folder:
+Requires the Windows SDK (makeappx.exe, signtool.exe) and the .NET 10 SDK: on PATH, in FM_DOTNET (path to
+dotnet.exe), or the per-user copy that dotnet-install.ps1 puts in %LOCALAPPDATA%\Microsoft\dotnet. Run from any folder:
   powershell -ExecutionPolicy Bypass -File scripts\release\Build-UserRelease.ps1
 -Version defaults to <Version> in Directory.Build.props.
 #>
@@ -23,7 +24,7 @@ param(
     [string] $RepoRoot = (Resolve-Path (Join-Path $PSScriptRoot "..\..")).Path,
     [string] $CertificatePfx = (Join-Path $PSScriptRoot "..\..\artifacts\certs\FolderManaging-Release.pfx"),
     [string] $CertificatePassword = $env:FM_RELEASE_CERT_PASSWORD,
-    [string] $RuntimeUrl = "https://aka.ms/dotnet/8.0/windowsdesktop-runtime-win-x64.exe"
+    [string] $RuntimeUrl = "https://aka.ms/dotnet/10.0/windowsdesktop-runtime-win-x64.exe"
 )
 
 $ErrorActionPreference = "Stop"
@@ -63,6 +64,16 @@ function Resolve-WindowsSdkTool([string] $name) {
         if (Test-Path -LiteralPath $flat) { return $flat }
     }
     throw "Could not find $name. Install the Windows SDK (Visual Studio 'Desktop development with C++' or the standalone SDK)."
+}
+
+function Resolve-DotnetSdk10 {
+    $candidates = @($env:FM_DOTNET, (Join-Path $env:LOCALAPPDATA "Microsoft\dotnet\dotnet.exe"))
+    $fromPath = Get-Command dotnet -CommandType Application -ErrorAction SilentlyContinue | Select-Object -First 1
+    if ($fromPath) { $candidates += $fromPath.Source }
+    foreach ($exe in $candidates | Where-Object { $_ -and (Test-Path -LiteralPath $_) }) {
+        if (& $exe --list-sdks 2>$null | Where-Object { $_ -match '^10\.' }) { return $exe }
+    }
+    throw "No .NET 10 SDK found. Install it (https://dotnet.microsoft.com/download/dotnet/10.0) or set FM_DOTNET."
 }
 
 function Invoke-Checked([string] $what, [scriptblock] $block) {
@@ -112,6 +123,10 @@ function Get-FrameFor([hashtable] $frames, [int] $size) {
     $frames[$best]
 }
 
+$dotnet = Resolve-DotnetSdk10
+$env:DOTNET_ROOT = Split-Path $dotnet
+$env:DOTNET_CLI_TELEMETRY_OPTOUT = "1"
+Set-Alias -Name dotnet -Value $dotnet -Scope Script
 $makeAppx = Resolve-WindowsSdkTool "makeappx.exe"
 $makePri = Resolve-WindowsSdkTool "makepri.exe"
 $signTool = Resolve-WindowsSdkTool "signtool.exe"
@@ -200,9 +215,9 @@ $pfx.Dispose()
 Copy-Item -LiteralPath (Join-Path $RepoRoot "sparse\FolderManaging.propdesc") -Destination $payloadDir
 Copy-Item -LiteralPath (Join-Path $RepoRoot "assets\FolderManaging.ico") -Destination $payloadDir
 
-$runtime = Join-Path $cacheDir "windowsdesktop-runtime-8-win-x64.exe"
+$runtime = Join-Path $cacheDir "windowsdesktop-runtime-10-win-x64.exe"
 if (-not (Test-Path -LiteralPath $runtime)) {
-    Write-Host "==> Downloading .NET 8 Desktop Runtime"
+    Write-Host "==> Downloading .NET 10 Desktop Runtime"
     Invoke-WebRequest -Uri $RuntimeUrl -OutFile $runtime -UseBasicParsing
 }
 $sig = Get-AuthenticodeSignature -LiteralPath $runtime

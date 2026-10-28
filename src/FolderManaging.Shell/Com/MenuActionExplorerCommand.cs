@@ -3,6 +3,7 @@
 
 using System.Runtime.InteropServices;
 using System.Runtime.InteropServices.ComTypes;
+using FolderManaging.Core;
 using FolderManaging.Core.Diagnostics;
 using FolderManaging.Core.Storage;
 using FolderManaging.Shell.Diagnostics;
@@ -51,14 +52,16 @@ internal sealed class MenuActionExplorerCommand : Shell32.IExplorerCommand
         return HRESULT.S_OK;
     }
 
-    /// <summary>Tag rows show ✅ when the selected folder already has the tag (a click then removes it).</summary>
+    /// <summary>Tag rows show ✅ when every selected folder already has the tag (a click then removes it).</summary>
     bool IsTagOnSelection(Shell32.IShellItemArray? items)
     {
         try
         {
-            var hr = ShellItemPaths.TryGetFirstPath(items, out var path);
-            return hr.Succeeded && !string.IsNullOrWhiteSpace(path) && !string.IsNullOrWhiteSpace(_token) &&
-                   FolderStateTagSync.FolderHasTag(MenuStateReader.GetMerged(), path, _token);
+            var paths = ShellItemPaths.GetAllPaths(items);
+            if (paths.Count == 0 || string.IsNullOrWhiteSpace(_token))
+                return false;
+            var doc = MenuStateReader.GetMerged();
+            return paths.All(p => FolderStateTagSync.FolderHasTag(doc, p, _token));
         }
         catch (Exception ex)
         {
@@ -110,22 +113,22 @@ internal sealed class MenuActionExplorerCommand : Shell32.IExplorerCommand
 
             pCmdState = Shell32.EXPCMDSTATE.ECS_ENABLED;
 
-            // Dynamic Pin/Unpin visibility (fast path; never blocks Explorer UI).
+            // Pin shows when a selected folder is not pinned yet, Unpin when one is (both for a mixed selection).
             var kind = _kind.ToLowerInvariant();
             if (kind is "pin" or "unpin")
             {
-                var hr = ShellItemPaths.TryGetFirstPath(psiItemArray, out var path);
-                if (!hr.Succeeded || string.IsNullOrWhiteSpace(path))
+                var paths = ShellItemPaths.GetAllPaths(psiItemArray);
+                if (paths.Count == 0)
                 {
                     // If we can't resolve a real folder path, hide the action (better UX than showing broken items).
                     pCmdState = Shell32.EXPCMDSTATE.ECS_HIDDEN;
                     return HRESULT.S_OK;
                 }
 
-                var isPinned = PinnedStateCache.IsPinned(path);
-                if (kind == "pin" && isPinned)
-                    pCmdState = Shell32.EXPCMDSTATE.ECS_HIDDEN;
-                else if (kind == "unpin" && !isPinned)
+                var show = kind == "pin"
+                    ? paths.Any(p => !PinnedStateCache.IsPinned(p))
+                    : paths.Any(PinnedStateCache.IsPinned);
+                if (!show)
                     pCmdState = Shell32.EXPCMDSTATE.ECS_HIDDEN;
             }
 
@@ -157,164 +160,108 @@ internal sealed class MenuActionExplorerCommand : Shell32.IExplorerCommand
             ShellActionLog.Write($"[COM] [START] Invoke verb={_verbId} kind={_kind} token={_token ?? "(none)"} click={ClickTrace.Current}");
 
             var kindInvoke = _kind.ToLowerInvariant();
-
-            string? path = null;
-            if (kindInvoke != "settings")
+            if (kindInvoke == "noop")
             {
-                HRESULT hr;
-                try
-                {
-                    hr = ShellItemPaths.TryGetFirstPath(psiItemArray, out path);
-                }
-                catch (Exception ex)
-                {
-                    ExtremeLogger.LogException(ex, "ShellItemPaths.TryGetFirstPath threw");
-                    ClickTrace.Fail(ex);
-                    click.MarkFinished();
-                    return HRESULT.E_FAIL;
-                }
-
-                if (!hr.Succeeded || string.IsNullOrWhiteSpace(path))
-                {
-                    ExtremeLogger.Log($"[COM] [FAIL] path unresolved verb={_verbId} kind={_kind} hr={hr}");
-                    ShellActionLog.Write($"[COM] [FAIL] path unresolved verb={_verbId} kind={_kind} hr={hr}");
-                    ClickTrace.Fail($"path unresolved hr={hr}");
-                    click.MarkFinished();
-                    return hr.Succeeded ? HRESULT.E_INVALIDARG : hr;
-                }
-
-                ClickTrace.Step($"resolved path='{path}'");
+                ClickTrace.Ok("noop separator");
+                click.MarkFinished();
+                return HRESULT.S_OK;
             }
 
-            ExtremeLogger.Log($"[COM] [PROCESS] resolved path='{path ?? "(none)"}'");
-            ShellActionLog.Write($"[COM] [PROCESS] resolved path={path ?? "(none)"}");
+            if (kindInvoke == "settings")
+            {
+                ComVerbExecutor.OpenSettings();
+                ShellActionLog.Write($"[COM] [SUCCESS] verb={_verbId} kind=settings");
+                ClickTrace.Ok("settings launched");
+                click.MarkFinished();
+                return HRESULT.S_OK;
+            }
 
-            var tagAdd = true;
+            IReadOnlyList<string> paths;
+            try
+            {
+                paths = ShellItemPaths.GetAllPaths(psiItemArray);
+            }
+            catch (Exception ex)
+            {
+                ExtremeLogger.LogException(ex, "ShellItemPaths.GetAllPaths threw");
+                ClickTrace.Fail(ex);
+                click.MarkFinished();
+                return HRESULT.E_FAIL;
+            }
+
+            if (paths.Count == 0)
+            {
+                ShellActionLog.Write($"[COM] [FAIL] path unresolved verb={_verbId} kind={_kind}");
+                ClickTrace.Fail("path unresolved");
+                click.MarkFinished();
+                return HRESULT.E_INVALIDARG;
+            }
+
+            ClickTrace.Step($"resolved {paths.Count} path(s), first='{paths[0]}'");
+            ShellActionLog.Write($"[COM] [PROCESS] resolved {paths.Count} path(s), first={paths[0]}");
+
             try
             {
                 switch (kindInvoke)
                 {
-                    case "color":
+                    case "color" or "rgb" or "recent":
+                    {
                         if (string.IsNullOrWhiteSpace(_token))
                             throw new ArgumentException("Color token is required.");
-                        if (string.IsNullOrWhiteSpace(path))
-                            throw new InvalidOperationException("color requires a folder path.");
-                        ExtremeLogger.Log($"[COM] [PROCESS] dispatch -> ComVerbExecutor.ApplyColor token={_token}");
-                        ComVerbExecutor.ApplyColor(path, _token);
-                        ExtremeLogger.Log($"[COM] [SUCCESS] verb={_verbId} kind=color token={_token}");
-                        ShellActionLog.Write($"[COM] [SUCCESS] verb={_verbId} kind=color token={_token}");
-                        ClickTrace.Ok($"color={_token} path='{path}'");
-                        click.MarkFinished();
-                        return HRESULT.S_OK;
+                        var isRgb = kindInvoke == "rgb" ||
+                                    (kindInvoke == "recent" && _token.StartsWith("rgb-", StringComparison.OrdinalIgnoreCase));
+                        var value = isRgb && _token.StartsWith("rgb-", StringComparison.OrdinalIgnoreCase) ? _token[4..] : _token;
+                        var actionKind = isRgb ? FolderActionKind.Rgb : FolderActionKind.Color;
+                        ComVerbExecutor.RunBatch(paths.Select(p => new FolderAction(actionKind, p, value)).ToList());
+                        break;
+                    }
 
                     case "reset":
-                        if (string.IsNullOrWhiteSpace(path))
-                            throw new InvalidOperationException("reset requires a folder path.");
-                        ExtremeLogger.Log($"[COM] [PROCESS] dispatch -> ComVerbExecutor.ResetColor");
-                        ComVerbExecutor.ResetColor(path);
-                        ExtremeLogger.Log($"[COM] [SUCCESS] verb={_verbId} kind=reset");
-                        ShellActionLog.Write($"[COM] [SUCCESS] verb={_verbId} kind=reset");
-                        ClickTrace.Ok($"reset path='{path}'");
-                        click.MarkFinished();
-                        return HRESULT.S_OK;
-
-                    case "pin":
-                        if (string.IsNullOrWhiteSpace(path))
-                            throw new InvalidOperationException("pin requires a folder path.");
-                        ExtremeLogger.Log($"[COM] [PROCESS] dispatch -> ComVerbExecutor.Pin");
-                        ComVerbExecutor.Pin(path);
-                        ExtremeLogger.Log($"[COM] [SUCCESS] verb={_verbId} kind=pin");
-                        ShellActionLog.Write($"[COM] [SUCCESS] verb={_verbId} kind=pin");
-                        ClickTrace.Ok($"pin path='{path}'");
-                        click.MarkFinished();
-                        return HRESULT.S_OK;
-
-                    case "unpin":
-                        if (string.IsNullOrWhiteSpace(path))
-                            throw new InvalidOperationException("unpin requires a folder path.");
-                        ExtremeLogger.Log($"[COM] [PROCESS] dispatch -> ComVerbExecutor.Unpin");
-                        ComVerbExecutor.Unpin(path);
-                        ExtremeLogger.Log($"[COM] [SUCCESS] verb={_verbId} kind=unpin");
-                        ShellActionLog.Write($"[COM] [SUCCESS] verb={_verbId} kind=unpin");
-                        ClickTrace.Ok($"unpin path='{path}'");
-                        click.MarkFinished();
-                        return HRESULT.S_OK;
+                        ComVerbExecutor.RunBatch(paths.Select(p => new FolderAction(FolderActionKind.Reset, p)).ToList());
+                        break;
 
                     case "tag":
+                    {
                         if (string.IsNullOrWhiteSpace(_token))
                             throw new ArgumentException("Tag id is required.");
-                        if (string.IsNullOrWhiteSpace(path))
-                            throw new InvalidOperationException("tag requires a folder path.");
-                        tagAdd = !ComVerbExecutor.FolderHasTag(path, _token);
-                        ExtremeLogger.Log($"[COM] [PROCESS] dispatch -> ComVerbExecutor.ToggleTag token={_token} add={tagAdd}");
-                        ComVerbExecutor.ToggleTag(path, _token, tagAdd);
-                        ExtremeLogger.Log($"[COM] [SUCCESS] verb={_verbId} kind=tag token={_token}");
-                        ShellActionLog.Write($"[COM] [SUCCESS] verb={_verbId} kind=tag token={_token}");
-                        ClickTrace.Ok($"{(tagAdd ? "tag" : "untag")}={_token} path='{path}'");
-                        click.MarkFinished();
-                        return HRESULT.S_OK;
+                        var add = ComVerbExecutor.TagShouldAdd(paths, _token);
+                        var kind = add ? FolderActionKind.Tag : FolderActionKind.Untag;
+                        ComVerbExecutor.RunBatch(paths.Select(p => new FolderAction(kind, p, _token)).ToList());
+                        break;
+                    }
 
-                    case "noop":
-                        ClickTrace.Ok("noop separator");
-                        click.MarkFinished();
-                        return HRESULT.S_OK;
+                    case "pin":
+                        ComVerbExecutor.Pin(paths.Where(p => !PinnedStateCache.IsPinned(p)).ToList());
+                        break;
 
-                    case "settings":
-                        ExtremeLogger.Log($"[COM] [PROCESS] dispatch -> ComVerbExecutor.OpenSettings");
-                        ComVerbExecutor.OpenSettings();
-                        ExtremeLogger.Log($"[COM] [SUCCESS] verb={_verbId} kind=settings");
-                        ShellActionLog.Write($"[COM] [SUCCESS] verb={_verbId} kind=settings");
-                        ClickTrace.Ok("settings launched");
-                        click.MarkFinished();
-                        return HRESULT.S_OK;
+                    case "unpin":
+                        ComVerbExecutor.Unpin(paths.Where(PinnedStateCache.IsPinned).ToList());
+                        break;
 
                     case "quick-color":
-                        if (string.IsNullOrWhiteSpace(path))
-                            throw new InvalidOperationException("quick-color requires a folder path.");
-                        ExtremeLogger.Log($"[COM] [PROCESS] dispatch -> ComVerbExecutor.OpenQuickColor");
-                        ComVerbExecutor.OpenQuickColor(path);
-                        ExtremeLogger.Log($"[COM] [SUCCESS] verb={_verbId} kind=quick-color");
-                        ShellActionLog.Write($"[COM] [SUCCESS] verb={_verbId} kind=quick-color");
-                        ClickTrace.Ok($"quick-color path='{path}'");
-                        click.MarkFinished();
-                        return HRESULT.S_OK;
-
-                    case "rgb":
-                        if (string.IsNullOrWhiteSpace(_token))
-                            throw new ArgumentException("RGB hex is required.");
-                        if (string.IsNullOrWhiteSpace(path))
-                            throw new InvalidOperationException("rgb requires a folder path.");
-                        ExtremeLogger.Log($"[COM] [PROCESS] dispatch -> ComVerbExecutor.ApplyRgb hex={_token}");
-                        ComVerbExecutor.ApplyRgb(path, _token);
-                        ExtremeLogger.Log($"[COM] [SUCCESS] verb={_verbId} kind=rgb hex={_token}");
-                        ShellActionLog.Write($"[COM] [SUCCESS] verb={_verbId} kind=rgb hex={_token}");
-                        ClickTrace.Ok($"rgb=#{_token} path='{path}'");
-                        click.MarkFinished();
-                        return HRESULT.S_OK;
+                        ComVerbExecutor.OpenQuickColor(paths);
+                        break;
 
                     default:
                         ClickTrace.Fail($"unknown menu kind={_kind}");
                         click.MarkFinished();
                         return HRESULT.E_NOTIMPL;
                 }
+
+                ShellActionLog.Write($"[COM] [SUCCESS] verb={_verbId} kind={kindInvoke} token={_token ?? "(none)"}");
+                ClickTrace.Ok($"{kindInvoke} x{paths.Count}");
+                click.MarkFinished();
+                return HRESULT.S_OK;
             }
             catch (Exception ex)
             {
                 ExtremeLogger.LogException(
                     ex,
-                    $"verb-execution failure verb={_verbId} kind={_kind} token={_token ?? "(none)"} path={path}");
+                    $"verb-execution failure verb={_verbId} kind={_kind} token={_token ?? "(none)"} first={paths[0]}");
                 ShellActionLog.Write($"[COM] [FAIL] verb-execution verb={_verbId} kind={_kind} ex={ex}");
-                var elevatedAction = kindInvoke == "tag" && !tagAdd ? "untag" : kindInvoke;
-                if (elevatedAction is "color" or "rgb" or "reset" or "tag" or "untag" && !string.IsNullOrWhiteSpace(path) &&
-                    UserFeedback.ReportFolderActionFailure(elevatedAction, path, elevatedAction is "color" or "rgb" or "tag" or "untag" ? _token : null, ex))
-                {
-                    ClickTrace.Ok($"{kindInvoke} done via elevated CLI path='{path}'");
-                    click?.MarkFinished();
-                    return HRESULT.S_OK;
-                }
-
+                UserFeedback.ReportFailure(paths[0], ex);
                 ClickTrace.Fail(ex);
-                click?.MarkFinished();
+                click.MarkFinished();
                 return HRESULT.E_FAIL;
             }
         }

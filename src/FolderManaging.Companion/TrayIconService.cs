@@ -116,7 +116,7 @@ internal sealed class TrayIconService : IDisposable
                     }
                 }
 
-                var win = new QuickColorWindow(folderPath);
+                var win = new QuickColorWindow(string.IsNullOrWhiteSpace(folderPath) ? null : [folderPath]);
                 win.Show();
                 win.Activate();
             });

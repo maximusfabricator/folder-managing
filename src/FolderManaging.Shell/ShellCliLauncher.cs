@@ -120,6 +120,28 @@ internal static class ShellCliLauncher
         }
     }
 
+    /// <summary>Starts the CLI hidden and does not wait (work that may take a few seconds, e.g. re-pinning).</summary>
+    internal static void StartDetached(params string[] args)
+    {
+        try
+        {
+            if (!TryResolveCliExecutablePath(out var cli))
+            {
+                TraceLog.Append("shell-menu.log", "[COM] CLI not found for detached start");
+                return;
+            }
+
+            var psi = new ProcessStartInfo { FileName = cli, UseShellExecute = false, CreateNoWindow = true };
+            foreach (var a in args)
+                psi.ArgumentList.Add(a);
+            using var _ = Process.Start(psi);
+        }
+        catch (Exception ex)
+        {
+            TraceLog.Append("shell-menu.log", $"[COM] detached CLI start failed: {ex.Message}");
+        }
+    }
+
     /// <summary>Re-runs a color/reset via the CLI with a UAC prompt (for protected folders such as <c>C:\Program Files</c>).</summary>
     internal static bool TryInvokeVerbElevated(string action, string folderPath, string? value) =>
         ElevatedCliInvoker.TryInvoke(action, folderPath, value, out _);

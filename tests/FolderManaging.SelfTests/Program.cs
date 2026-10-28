@@ -13,7 +13,7 @@ namespace FolderManaging.SelfTests;
 /// Nothing here touches the real state.json or a folder on disk.
 /// Run: dotnet run --project tests\FolderManaging.SelfTests -c Release
 /// </summary>
-static class Program
+static partial class Program
 {
     const string Folder = @"C:\FmSelfTest\Projects";
     static int _failed;
@@ -177,12 +177,14 @@ static class Program
             }
         });
 
+        FeatureChecks();
+
         Console.WriteLine(_failed == 0 ? "ALL PASSED" : $"{_failed} FAILED");
         return _failed == 0 ? 0 : 1;
     }
 
     static readonly string[] MenuLabelKeys =
-        ["Pin", "Unpin", "TagLine", "TagLineOn", "ColorLine", "ColorHex", "ColorPlain", "LabelQuick", "LabelReset", "LabelSettings"];
+        ["Pin", "Unpin", "TagLine", "TagLineOn", "ColorLine", "ColorHex", "ColorPlain", "RecentLine", "LabelQuick", "LabelReset", "LabelSettings"];
 
     /// <summary>Differences that break the UI: lost keys, placeholders, line breaks or menu emoji.</summary>
     static List<string> StringTableProblems(IReadOnlyDictionary<string, string> english, IReadOnlyDictionary<string, string> table)
@@ -205,7 +207,7 @@ static class Program
                 problems.Add($"{key} line breaks");
             try
             {
-                _ = string.Format(text, "a", "b");
+                _ = string.Format(text, "a", "b", "c", "d");
             }
             catch (FormatException)
             {

@@ -107,6 +107,56 @@
                 <ui:CardControl.Header>
                     <StackPanel>
                         <TextBlock Style="{StaticResource FmText}" FontSize="14" FontWeight="SemiBold" TextWrapping="Wrap"
+                                   Text="{loc:Loc RepairTitle}" />
+                        <TextBlock Style="{StaticResource FmTextSecondary}" Margin="0,4,0,0" FontSize="12" Opacity="0.65" TextWrapping="Wrap"
+                                   Text="{loc:Loc RepairHint}" />
+                        <TextBlock Style="{StaticResource FmText}" x:Name="RepairResultText" Margin="0,8,0,0" FontSize="12" TextWrapping="Wrap"
+                                   Visibility="Collapsed" />
+                        <StackPanel x:Name="RepairList" />
+                    </StackPanel>
+                </ui:CardControl.Header>
+                <StackPanel>
+                    <ui:Button x:Name="CheckFoldersButton"
+                               Appearance="Secondary"
+                               Icon="{ui:SymbolIcon Symbol=Stethoscope24}"
+                               Content="{loc:Loc CheckFolders}"
+                               Click="OnCheckFoldersClick" />
+                    <ui:Button x:Name="RepairButton"
+                               Margin="0,12,0,0"
+                               Appearance="Primary"
+                               Icon="{ui:SymbolIcon Symbol=Wrench24}"
+                               Content="{loc:Loc RepairButton}"
+                               Visibility="Collapsed"
+                               Click="OnRepairClick" />
+                </StackPanel>
+            </ui:CardControl>
+
+            <ui:CardControl Margin="0,12,0,0" Padding="16,14">
+                <ui:CardControl.Header>
+                    <StackPanel>
+                        <TextBlock Style="{StaticResource FmText}" FontSize="14" FontWeight="SemiBold" TextWrapping="Wrap"
+                                   Text="{loc:Loc TransferTitle}" />
+                        <TextBlock Style="{StaticResource FmTextSecondary}" Margin="0,4,0,0" FontSize="12" Opacity="0.65" TextWrapping="Wrap"
+                                   Text="{loc:Loc TransferHint}" />
+                    </StackPanel>
+                </ui:CardControl.Header>
+                <StackPanel>
+                    <ui:Button Appearance="Secondary"
+                               Icon="{ui:SymbolIcon Symbol=ArrowUpload24}"
+                               Content="{loc:Loc ExportSettings}"
+                               Click="OnExportClick" />
+                    <ui:Button Margin="0,12,0,0"
+                               Appearance="Secondary"
+                               Icon="{ui:SymbolIcon Symbol=ArrowDownload24}"
+                               Content="{loc:Loc ImportSettings}"
+                               Click="OnImportClick" />
+                </StackPanel>
+            </ui:CardControl>
+
+            <ui:CardControl Margin="0,12,0,0" Padding="16,14">
+                <ui:CardControl.Header>
+                    <StackPanel>
+                        <TextBlock Style="{StaticResource FmText}" FontSize="14" FontWeight="SemiBold" TextWrapping="Wrap"
                                    Text="{loc:Loc UninstallApp}" />
                         <TextBlock Style="{StaticResource FmTextSecondary}" Margin="0,4,0,0" FontSize="12" Opacity="0.65" TextWrapping="Wrap"
                                    Text="{loc:Loc UninstallAppHint}" />

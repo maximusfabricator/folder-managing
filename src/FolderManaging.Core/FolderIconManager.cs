@@ -258,7 +258,7 @@ public static class FolderIconManager
 
         var hue = FolderColorHueProperty.FromColor(resolvedTint);
         var tags = FolderTagProperty.LabelsFor(doc, fullFolder);
-        var iniBody = ComposeManagedIniBody(iniPath, iconResourceLine, hue, colorId, tags);
+        var iniBody = ComposeManagedIniBody(iniPath, iconResourceLine, hue, colorId, tags, ResolveFolderId(doc, fullFolder));
         ClickTrace.Step($"ColorHue={hue} sortLabel='{FolderColorHueProperty.ToSortLabel(hue, colorId)}'");
 
         TraceLog.Append("shell-menu.log", $"[CORE] [STEP 8 WRITE] {iniBody.Length} chars UTF-16 LE -> '{iniPath}' hue={hue}");
@@ -455,6 +455,36 @@ public static class FolderIconManager
     /// keeps all its non-icon lines and is embedded as Base64 so reset can put it back byte-for-byte.
     /// Also embeds <see cref="FolderColorHueProperty"/> (Title/Tags labels) for rainbow sort in Explorer.
     /// </summary>
+    static string ComposeManagedIniBody(string iniPath, string? iconResourceLine, int? colorHueDegrees, string? colorIdOrHex,
+        IReadOnlyList<string> tagLabels, string folderId)
+    {
+        var composed = ComposeManagedIniBody(iniPath, iconResourceLine, colorHueDegrees, colorIdOrHex, tagLabels);
+        var header = FolderColorHueProperty.IniSectionHeader + Environment.NewLine;
+        var at = composed.IndexOf(header, StringComparison.Ordinal);
+        return at < 0
+            ? composed
+            : composed.Insert(at + header.Length, FolderIdKey + "=" + folderId + Environment.NewLine);
+    }
+
+    /// <summary>Key in our <c>[FolderManaging]</c> section that ties the folder to its <c>state.json</c> entry.</summary>
+    public const string FolderIdKey = "FolderId";
+
+    /// <summary>The entry's id, else the one already in the folder's <c>desktop.ini</c> (ours), else a new one.</summary>
+    static string ResolveFolderId(AppStateDocument doc, string fullFolder) =>
+        FindFolderEntry(doc, fullFolder)?.Id ?? TryReadFolderId(fullFolder) ?? StateMigration.NewId();
+
+    public static bool IsOurDesktopIni(string iniPath) => IsManagedDesktopIni(iniPath);
+
+    /// <summary>The <c>FolderId</c> from our <c>desktop.ini</c> in this folder, or <c>null</c>.</summary>
+    public static string? TryReadFolderId(string folderPath)
+    {
+        var iniPath = Path.Combine(folderPath, DesktopIniFileName);
+        if (!File.Exists(iniPath) || !IsManagedDesktopIni(iniPath))
+            return null;
+        var id = TryReadIniValue(iniPath, FolderIdKey);
+        return string.IsNullOrWhiteSpace(id) ? null : id;
+    }
+
     static string ComposeManagedIniBody(string iniPath, string? iconResourceLine, int? colorHueDegrees, string? colorIdOrHex, IReadOnlyList<string> tagLabels)
     {
         string? original = null;
@@ -586,7 +616,8 @@ public static class FolderIconManager
     /// Writes the folder's current tags into <c>desktop.ini</c> and regenerates the .ico
     /// (stock or tinted folder + optional tag badge). With no tags and no color, removes our ini.
     /// </summary>
-    public static void SyncFolderTags(string folderPath)
+    /// <param name="force">Rewrite even when the file looks current (Repair).</param>
+    public static void SyncFolderTags(string folderPath, bool force = false)
     {
         if (string.IsNullOrWhiteSpace(folderPath))
             return;
@@ -617,7 +648,7 @@ public static class FolderIconManager
                        + (tagBadge is { } b ? "-t" + MenuColorHex.ToHexRgb(b).ToLowerInvariant() : "")
                        + (labels.Count > 0 ? "-tags" : "");
         // Already current: skip, so a protected folder does not ask for admin rights for nothing.
-        if (managed && IsSyncedIni(iniPathExisting, fullFolder, labels, cacheTag))
+        if (!force && managed && IsSyncedIni(iniPathExisting, fullFolder, labels, cacheTag, entry?.Id, anyStore: false))
             return;
 
         EnsureFolderWritable(fullFolder);
@@ -625,7 +656,7 @@ public static class FolderIconManager
         var iconResourceLine = BuildIconResourceLine(iconFullPath);
         int? hue = folderTint is { } tint ? FolderColorHueProperty.FromColor(tint) : null;
         var iniPath = Path.Combine(fullFolder, DesktopIniFileName);
-        var body = ComposeManagedIniBody(iniPath, iconResourceLine, hue, colorToken, labels);
+        var body = ComposeManagedIniBody(iniPath, iconResourceLine, hue, colorToken, labels, ResolveFolderId(doc, fullFolder));
         ClearFolderReadOnly(fullFolder);
         WriteManagedDesktopIni(iniPath, body);
         SetFolderReadOnly(fullFolder);
@@ -635,18 +666,58 @@ public static class FolderIconManager
     }
 
     /// <summary>True when our <c>desktop.ini</c> already lists these labels and uses this folder's icon for <paramref name="cacheTag"/>.</summary>
-    static bool IsSyncedIni(string iniPath, string fullFolder, IReadOnlyList<string> labels, string cacheTag)
+    /// <param name="anyStore">Accept an icon from the per-user store of 2.0 (it only misses the other accounts).</param>
+    static bool IsSyncedIni(string iniPath, string fullFolder, IReadOnlyList<string> labels, string cacheTag, string? folderId, bool anyStore)
     {
         var tags = TryReadIniValue(iniPath, FolderTagProperty.IniKey) ?? "";
         if (!string.Equals(tags, FolderTagProperty.Join(labels), StringComparison.Ordinal))
             return false;
+        if (!anyStore && folderId is not null &&
+            !string.Equals(TryReadIniValue(iniPath, FolderIdKey), folderId, StringComparison.OrdinalIgnoreCase))
+            return false;
 
+        var iconPath = TryReadIconPath(iniPath);
+        if (iconPath is null || !PerFolderIconCache.IsCurrentIcon(iconPath, fullFolder, cacheTag))
+            return false;
+        return anyStore || PerFolderIconCache.IsInCurrentStore(iconPath);
+    }
+
+    /// <summary>The <c>.ico</c> path from <c>IconResource=</c>, or <c>null</c>.</summary>
+    internal static string? TryReadIconPath(string iniPath)
+    {
         var icon = TryReadIniValue(iniPath, "IconResource");
         if (string.IsNullOrWhiteSpace(icon))
-            return false;
+            return null;
         var comma = icon.LastIndexOf(',');
         var iconPath = (comma > 0 ? icon[..comma] : icon).Trim().Trim('"');
-        return PerFolderIconCache.IsCurrentIcon(iconPath, fullFolder, cacheTag);
+        return iconPath.Length == 0 ? null : iconPath;
+    }
+
+    /// <summary>
+    /// The folder shows what <c>state.json</c> says, perhaps with an icon from the old per-user store.
+    /// Used at startup so protected folders that only need the move to the shared store do not ask for admin rights.
+    /// </summary>
+    public static bool IsSyncedExceptStore(string folderPath)
+    {
+        try
+        {
+            var fullFolder = Path.GetFullPath(folderPath);
+            var iniPath = Path.Combine(fullFolder, DesktopIniFileName);
+            if (!File.Exists(iniPath) || !IsManagedDesktopIni(iniPath))
+                return false;
+            var doc = JsonFolderStateStore.LoadSynchronously();
+            var labels = FolderTagProperty.LabelsFor(doc, fullFolder);
+            var folderTint = TryResolveFolderTint(FindFolderEntry(doc, fullFolder)?.ColorToken);
+            var tagBadge = labels.Count > 0 ? TryResolveTagBadgeColor(doc, fullFolder) : null;
+            var cacheTag = (folderTint is { } t ? PerFolderIconCache.TagForRgb(t) : "stock")
+                           + (tagBadge is { } b ? "-t" + MenuColorHex.ToHexRgb(b).ToLowerInvariant() : "")
+                           + (labels.Count > 0 ? "-tags" : "");
+            return IsSyncedIni(iniPath, fullFolder, labels, cacheTag, null, anyStore: true);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or ArgumentException)
+        {
+            return false;
+        }
     }
 
     static string WriteVersionedCompositeIcon(string fullFolder, Color? folderTint, Color? tagBadge, string cacheTag)
@@ -734,6 +805,12 @@ public static class FolderIconManager
             }
             catch (UnauthorizedAccessException ex)
             {
+                if (IsSyncedExceptStore(folder.Path))
+                {
+                    TraceLog.Append("shell-menu.log", $"[CORE] '{folder.Path}' only needs the shared icon store (Repair)");
+                    continue;
+                }
+
                 denied.Add(folder.Path);
                 TraceLog.Append("shell-menu.log", $"[CORE] SyncFolderTags access denied '{folder.Path}': {ex.Message}");
             }
@@ -938,7 +1015,7 @@ public static class FolderIconManager
         var hue = FolderColorHueProperty.FromColor(tint);
         var rgbLabel = $"{tint.R:X2}{tint.G:X2}{tint.B:X2}";
         var tags = FolderTagProperty.LabelsFor(doc, fullFolder);
-        var iniBody = ComposeManagedIniBody(iniPath, iconResourceLine, hue, rgbLabel, tags);
+        var iniBody = ComposeManagedIniBody(iniPath, iconResourceLine, hue, rgbLabel, tags, ResolveFolderId(doc, fullFolder));
         ClickTrace.Step($"ApplyRgb ColorHue={hue} sortLabel='{FolderColorHueProperty.ToSortLabel(hue, rgbLabel)}'");
 
         WriteManagedDesktopIni(iniPath, iniBody);

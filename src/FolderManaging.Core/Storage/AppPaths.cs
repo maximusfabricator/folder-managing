@@ -20,6 +20,14 @@ public static class AppPaths
     {
         get
         {
+#if FM_DEV
+            // Developer builds: UI tours and experiments run on a copy instead of the real state.json.
+            if (Environment.GetEnvironmentVariable("FM_DATA_DIR") is { Length: > 0 } devDir)
+            {
+                Directory.CreateDirectory(devDir);
+                return Path.GetFullPath(devDir);
+            }
+#endif
             var dir = Path.Combine(
                 Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
                 ".FolderManaging");
@@ -44,6 +52,38 @@ public static class AppPaths
             return Path.GetFullPath(dir);
         }
     }
+
+    /// <summary>
+    /// Icon store every account on the PC can read: <c>%ProgramData%\FolderManaging\Icons</c>. The installer creates it
+    /// with write access for Users; <c>null</c> when it is missing or not writable (developer build, Store edition).
+    /// </summary>
+    public static string SharedIconsDirectory =>
+        Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData), "FolderManaging", "Icons");
+
+    static readonly Lazy<string?> UsableSharedIcons = new(() =>
+    {
+        var dir = SharedIconsDirectory;
+        if (!Directory.Exists(dir))
+            return null;
+        var probe = Path.Combine(dir, $".probe-{Environment.ProcessId}-{Guid.NewGuid():N}");
+        try
+        {
+            File.WriteAllText(probe, "");
+            File.Delete(probe);
+            return Path.GetFullPath(dir);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            return null;
+        }
+    });
+
+    /// <summary>Per-folder icons named in <c>desktop.ini</c>: the shared store when usable, else the per-user cache.</summary>
+    public static string FolderIconsDirectory =>
+        Path.Combine(UsableSharedIcons.Value ?? GeneratedIconsDirectory, "Folders");
+
+    /// <summary>Per-user folder icons of 2.0 and older (only other accounts could not read them).</summary>
+    public static string PerUserFolderIconsDirectory => Path.Combine(GeneratedIconsDirectory, "Folders");
 
     /// <summary>Optional override via <c>FOLDERMANAGING_ICONS_DIR</c>, else package <c>Icons</c> when packaged, else same as generated path.</summary>
     public static string IconsDirectory

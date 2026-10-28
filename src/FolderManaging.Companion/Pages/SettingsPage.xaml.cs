@@ -11,6 +11,7 @@ using FolderManaging.Core;
 using FolderManaging.Core.Diagnostics;
 using FolderManaging.Core.Localization;
 using FolderManaging.Core.Models;
+using FolderManaging.Core.Storage;
 
 namespace FolderManaging.Companion.Pages;
 
@@ -256,6 +257,233 @@ public partial class SettingsPage : System.Windows.Controls.UserControl
     {
         if (Window.GetWindow(this) is MainWindow main)
             main.NavigateTo(typeof(ContextMenuPage));
+    }
+
+    /// <summary>Folders listed under the check result; the rest is "…".</summary>
+    const int ListedChecks = 12;
+
+    IReadOnlyList<FolderCheck> _checks = [];
+
+    async void OnCheckFoldersClick(object sender, RoutedEventArgs e) => await CheckFoldersAsync();
+
+    async Task CheckFoldersAsync()
+    {
+        using var scope = ClickTrace.Begin("companion", "settings-check-folders");
+        CheckFoldersButton.IsEnabled = false;
+        RepairButton.Visibility = Visibility.Collapsed;
+        RepairResultText.Visibility = Visibility.Visible;
+        RepairResultText.Text = UiText.Get("Checking");
+        RepairList.Children.Clear();
+        try
+        {
+            var doc = CompanionState.Document;
+            _checks = await Task.Run(() => FolderDiagnostics.CheckAll(doc));
+            ShowChecks();
+            ClickTrace.Ok($"{_checks.Count(c => !c.IsHealthy)} of {_checks.Count} with issues");
+        }
+        catch (Exception ex)
+        {
+            ClickTrace.Fail(ex);
+            RepairResultText.Text = ex.Message;
+        }
+        finally
+        {
+            scope.MarkFinished();
+            CheckFoldersButton.IsEnabled = true;
+        }
+    }
+
+    void ShowChecks()
+    {
+        RepairList.Children.Clear();
+        var bad = _checks.Where(c => !c.IsHealthy).ToList();
+        if (bad.Count == 0)
+        {
+            RepairResultText.Text = UiText.Format("CheckAllGood", _checks.Count);
+            return;
+        }
+
+        RepairResultText.Text = UiText.Format("CheckFound", bad.Count, _checks.Count);
+        foreach (var check in bad.Take(ListedChecks))
+        {
+            // Its own left-to-right line: inside right-to-left text a path loses its digits to the wrong end.
+            RepairList.Children.Add(ResultLine(check.Path, top: 10, System.Windows.FlowDirection.LeftToRight));
+            foreach (var issue in check.Issues)
+                RepairList.Children.Add(ResultLine("•  " + UiText.Get("Issue" + issue), top: 2, null));
+        }
+
+        if (bad.Count > ListedChecks)
+            RepairList.Children.Add(ResultLine("…", top: 6, null));
+        RepairButton.Visibility = bad.Any(c => c.Issues.Any(FolderDiagnostics.IsRepairable))
+            ? Visibility.Visible
+            : Visibility.Collapsed;
+    }
+
+#if FM_DEV
+    /// <summary>UI tour: the result area filled with made-up problems, to see that long texts fit.</summary>
+    internal void ShowChecksForTour(IReadOnlyList<FolderCheck> checks)
+    {
+        _checks = checks;
+        RepairResultText.Visibility = Visibility.Visible;
+        ShowChecks();
+    }
+#endif
+
+    TextBlock ResultLine(string text, double top, System.Windows.FlowDirection? direction)
+    {
+        var line = new TextBlock
+        {
+            Text = text,
+            Style = (Style)FindResource("FmText"),
+            FontSize = 12,
+            TextWrapping = TextWrapping.Wrap,
+            Margin = new Thickness(0, top, 0, 0),
+        };
+        if (direction is { } d)
+        {
+            line.FlowDirection = d;
+            line.HorizontalAlignment = System.Windows.HorizontalAlignment.Left;
+        }
+
+        return line;
+    }
+
+    async void OnRepairClick(object sender, RoutedEventArgs e)
+    {
+        var repairable = _checks
+            .Where(c => c.Issues.Any(FolderDiagnostics.IsRepairable))
+            .Select(c => c with { Issues = c.Issues.Where(FolderDiagnostics.IsRepairable).ToList() })
+            .ToList();
+        if (repairable.Count == 0)
+            return;
+
+        using var scope = ClickTrace.Begin("companion", "settings-repair", detail: $"x{repairable.Count}");
+        CheckFoldersButton.IsEnabled = false;
+        RepairButton.IsEnabled = false;
+        RepairResultText.Text = UiText.Get("Repairing");
+        RepairList.Children.Clear();
+        FolderBatchResult result;
+        try
+        {
+            result = await FolderWriteGuard.RepairAsync(Window.GetWindow(this), repairable);
+            ClickTrace.Ok($"done {result.Done.Count}, failed {result.Failed.Count}");
+        }
+        finally
+        {
+            scope.MarkFinished();
+            RepairButton.IsEnabled = true;
+        }
+
+        FolderWriteGuard.Report(Window.GetWindow(this), result);
+        await CheckFoldersAsync();
+    }
+
+    void OnExportClick(object sender, RoutedEventArgs e)
+    {
+        var dialog = new Microsoft.Win32.SaveFileDialog
+        {
+            Filter = UiText.Get("SettingsFileFilter") + " (*.json)|*.json",
+            FileName = "FolderManaging-settings.json",
+            DefaultExt = ".json",
+            AddExtension = true,
+        };
+        if (dialog.ShowDialog(Window.GetWindow(this)) != true)
+            return;
+
+        using var scope = ClickTrace.Begin("companion", "settings-export");
+        try
+        {
+            File.WriteAllText(dialog.FileName, SettingsTransfer.Export(CompanionState.Document, AppInfo.Version));
+            ClickTrace.Ok();
+            scope.MarkFinished();
+            FmMessageBox.Show(
+                Window.GetWindow(this),
+                UiText.Format("ExportDone", UiText.LeftToRight(dialog.FileName)),
+                "Folder Managing",
+                MessageBoxButton.OK,
+                MessageBoxImage.Information);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            ClickTrace.Fail(ex);
+            scope.MarkFinished();
+            FmMessageBox.Show(
+                Window.GetWindow(this),
+                UiText.Format("ExportFail", ex.Message),
+                "Folder Managing",
+                MessageBoxButton.OK,
+                MessageBoxImage.Warning);
+        }
+    }
+
+    async void OnImportClick(object sender, RoutedEventArgs e)
+    {
+        var owner = Window.GetWindow(this);
+        var dialog = new Microsoft.Win32.OpenFileDialog
+        {
+            Filter = UiText.Get("SettingsFileFilter") + " (*.json)|*.json",
+            CheckFileExists = true,
+        };
+        if (dialog.ShowDialog(owner) != true)
+            return;
+
+        SettingsExport import;
+        try
+        {
+            import = SettingsTransfer.Parse(await File.ReadAllTextAsync(dialog.FileName));
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or InvalidDataException)
+        {
+            FmMessageBox.Show(owner, UiText.Format("ImportFail", ex.Message), "Folder Managing",
+                MessageBoxButton.OK, MessageBoxImage.Warning);
+            return;
+        }
+
+        if (FmMessageBox.Show(owner, UiText.Get("ImportConfirm"), UiText.Get("ImportSettings"),
+                MessageBoxButton.YesNo, MessageBoxImage.Question) != MessageBoxResult.Yes)
+            return;
+
+        using var scope = ClickTrace.Begin("companion", "settings-import");
+        var doc = CompanionState.Document;
+        var imported = SettingsTransfer.Apply(doc, import, Directory.Exists);
+        CompanionState.Save();
+        AppThemeService.ApplyFromDocument();
+        IsEnabled = false;
+        FolderBatchResult? result = null;
+        try
+        {
+            await Task.Run(FolderIconManager.EnsureMenuIconsForAllPresets);
+            if (imported.Folders.Count > 0)
+                result = await FolderWriteGuard.RunAsync(owner,
+                    imported.Folders.Select(p => new FolderAction(FolderActionKind.Sync, p, "force")).ToList());
+            ClickTrace.Ok($"colors {imported.Colors}, tags {imported.Tags}, folders {imported.Folders.Count}, missing {imported.MissingFolders.Count}");
+        }
+        finally
+        {
+            scope.MarkFinished();
+            IsEnabled = true;
+        }
+
+        if (result is not null)
+            FolderWriteGuard.Report(owner, result);
+        FmMessageBox.Show(owner,
+            UiText.Format("ImportDone", imported.Colors, imported.Tags, imported.Folders.Count, imported.MissingFolders.Count),
+            UiText.Get("ImportSettings"),
+            MessageBoxButton.OK,
+            MessageBoxImage.Information);
+
+        _suppressToggleEvents = true;
+        try
+        {
+            AutoElevateToggle.IsChecked = CompanionState.Document.AutoElevateProtectedFolders;
+            SelectThemeCombo(CompanionState.Document.Theme);
+        }
+        finally
+        {
+            _suppressToggleEvents = false;
+        }
+
+        ApplySavedLanguage();
     }
 
     void OnResetSettingsClick(object sender, RoutedEventArgs e)

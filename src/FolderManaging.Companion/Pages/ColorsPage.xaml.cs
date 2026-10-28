@@ -39,6 +39,68 @@ public partial class ColorsPage : System.Windows.Controls.UserControl
         }
 
         BindColors();
+        if (SchemeCombo.Items.Count == 0)
+            FillSchemeCombo();
+    }
+
+    void FillSchemeCombo()
+    {
+        foreach (var scheme in ColorSchemes.All)
+        {
+            var row = new StackPanel { Orientation = System.Windows.Controls.Orientation.Horizontal };
+            foreach (var color in scheme.Colors)
+            {
+                MenuColorHex.TryParse(color.HexRgb, out var c);
+                row.Children.Add(new Border
+                {
+                    Width = 14,
+                    Height = 14,
+                    Margin = new Thickness(0, 0, 3, 0),
+                    CornerRadius = new CornerRadius(3),
+                    VerticalAlignment = VerticalAlignment.Center,
+                    Background = new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(c.R, c.G, c.B)),
+                    ToolTip = UiText.Get(color.NameKey),
+                });
+            }
+
+            row.Children.Add(new TextBlock
+            {
+                Text = UiText.Get(scheme.NameKey),
+                Margin = new Thickness(8, 0, 0, 0),
+                VerticalAlignment = VerticalAlignment.Center,
+            });
+            SchemeCombo.Items.Add(new ComboBoxItem { Content = row, Tag = scheme });
+        }
+
+        SchemeCombo.SelectedIndex = 0;
+    }
+
+    void OnAddSchemeClick(object sender, RoutedEventArgs e)
+    {
+        if (SchemeCombo.SelectedItem is not ComboBoxItem { Tag: ColorScheme scheme })
+            return;
+
+        using var scope = ClickTrace.Begin("companion", "add-scheme", detail: scheme.Id);
+        var doc = CompanionState.Document;
+        var before = doc.MenuColors.Count;
+        var added = ColorSchemes.AddTo(doc, scheme,
+            (schemeKey, colorKey) => UiText.Format("SchemeColorLabel", UiText.Get(schemeKey), UiText.Get(colorKey)));
+        if (added > 0)
+        {
+            CompanionState.Save();
+            foreach (var preset in doc.MenuColors.Skip(before))
+                TryWritePresetIco(preset);
+            BindColors();
+        }
+
+        ClickTrace.Ok($"added {added}");
+        scope.MarkFinished();
+        FmMessageBox.Show(
+            Window.GetWindow(this),
+            added > 0 ? UiText.Format("SchemeAdded", added, UiText.Get(scheme.NameKey)) : UiText.Get("SchemeAlreadyAdded"),
+            "Folder Managing",
+            MessageBoxButton.OK,
+            MessageBoxImage.Information);
     }
 
     void OnUnloaded(object sender, RoutedEventArgs e)
@@ -178,6 +240,7 @@ public partial class ColorsPage : System.Windows.Controls.UserControl
 
         _suspendEditorSync = false;
         ColorEditorCard.Visibility = Visibility.Visible;
+        ColorsToolbar.Visibility = Visibility.Collapsed;
         ClickTrace.Step($"edit-color begin id={preset.Id} originalHex={_editOriginalHex}");
     }
 
@@ -267,6 +330,7 @@ public partial class ColorsPage : System.Windows.Controls.UserControl
     void CloseEditor()
     {
         ColorEditorCard.Visibility = Visibility.Collapsed;
+        ColorsToolbar.Visibility = Visibility.Visible;
         _editing = null;
         _editOriginalHex = null;
     }

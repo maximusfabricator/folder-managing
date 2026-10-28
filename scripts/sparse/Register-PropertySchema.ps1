@@ -47,8 +47,8 @@ if (-not $PropdescPath -or -not (Test-Path -LiteralPath $PropdescPath)) {
 if (-not $CliExe) {
     $cliCandidates = @(
         (Join-Path $RepoRoot "artifacts\SparseLayout\FolderManaging.Cli.exe"),
-        (Join-Path $RepoRoot "src\FolderManaging.Cli\bin\Release\net8.0-windows\FolderManaging.Cli.exe"),
-        (Join-Path $RepoRoot "src\FolderManaging.Cli\bin\Debug\net8.0-windows\FolderManaging.Cli.exe")
+        (Join-Path $RepoRoot "src\FolderManaging.Cli\bin\Release\net10.0-windows\FolderManaging.Cli.exe"),
+        (Join-Path $RepoRoot "src\FolderManaging.Cli\bin\Debug\net10.0-windows\FolderManaging.Cli.exe")
     )
     foreach ($c in $cliCandidates) {
         if (Test-Path -LiteralPath $c) {

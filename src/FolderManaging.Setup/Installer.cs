@@ -29,7 +29,7 @@ internal static class Installer
         var workDir = Payload.ExtractToTempDirectory();
         try
         {
-            progress.Report(SystemTools.IsDesktopRuntime8Installed()
+            progress.Report(SystemTools.IsDesktopRuntimeInstalled()
                 ? UiText.Get("PrepareWindows")
                 : UiText.Get("PrepareDotnet"));
             warnings.AddRange(RunElevatedStep("install", workDir));

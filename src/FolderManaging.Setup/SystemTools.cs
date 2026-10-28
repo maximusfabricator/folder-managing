@@ -159,15 +159,17 @@ internal static class SystemTools
         }
     }
 
-    /// <summary>The shell extension is framework-dependent (comhost cannot be self-contained), so .NET 8 Desktop Runtime x64 is required.</summary>
-    internal static bool IsDesktopRuntime8Installed()
+    /// <summary>The shell extension is framework-dependent (comhost cannot be self-contained), so the .NET 10 Desktop Runtime x64 is required.</summary>
+    internal const int RuntimeMajor = 10;
+
+    internal static bool IsDesktopRuntimeInstalled()
     {
         var root = Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles),
             "dotnet", "shared", "Microsoft.WindowsDesktop.App");
         if (!Directory.Exists(root))
             return false;
-        return Directory.EnumerateDirectories(root, "8.*").Any();
+        return Directory.EnumerateDirectories(root, $"{RuntimeMajor}.*").Any();
     }
 
     internal static void TryDeleteFile(string path)

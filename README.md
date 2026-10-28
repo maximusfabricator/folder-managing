@@ -12,9 +12,17 @@ Created by **maximusfabricator** · Free software under the [GNU General Public 
   folder icon.
 - **Sort and group in Explorer.** The *Folder color* and *Folder tags* columns let you sort colored folders in rainbow
   order (Sort → More… → *Folder color*) or group them by tag.
-- **Quick access.** Pin or unpin a folder from the same menu; the menu always shows the one that applies.
+- **Several folders at once.** Select folders in Explorer and color, reset or tag all of them; folders that need
+  administrator rights share one Windows prompt.
+- **Recent colors and color codes.** The menu shows your last three colors; the color window takes a code such as
+  `#3A86FF` and saves any color to *My colors*. Ready-made color schemes are on the Colors page.
+- **Quick access.** Pin or unpin a folder from the same menu; the menu always shows the one that applies. A pinned
+  folder shows its color in the navigation pane too (see the FAQ).
 - **Your own menu.** Show, hide, rename and reorder the items of the right-click menu, add separators.
-- **Manage folders.** One list of every folder with a color, tags or a pin, with buttons to clear each of them.
+- **Manage folders.** One list of every folder with a color, tags or a pin, with buttons to clear each of them, for
+  several rows at once, or for all. Renamed and moved folders stay in the list.
+- **Check and repair.** Settings → *Check and repair folders* explains why a colored folder looks plain and fixes it.
+- **Export and import** colors, tags, the menu and the folder list, for a backup or another PC.
 - **Tray icon.** Double-click it to color any folder quickly. Optional start with Windows.
 - **System folders.** Folders such as *Program Files* need administrator rights; confirm the Windows prompt once and
   the app can change them without asking again while the setting is on.
@@ -28,7 +36,7 @@ background.
 
 1. Download `FolderManaging-Setup-<version>.exe` from the [Releases](https://github.com/maximusfabricator/folder-managing/releases) page.
 2. Run it and click **Install**. Windows asks for administrator rights once: to trust the Folder Managing signature
-   and, if needed, to install the .NET 8 Desktop Runtime (included in the installer, no download).
+   and, if needed, to install the .NET 10 Desktop Runtime (included in the installer, no download).
 3. Right-click any folder → **Folder Manager**.
 
 Requirements: Windows 11, x64. On Windows 10 the app installs, but the menu item may not appear.
@@ -55,14 +63,52 @@ Corrections from native speakers are very welcome — the texts are plain JSON f
 | What | Where |
 | --- | --- |
 | Settings, colors, tags, folder list | `%USERPROFILE%\.FolderManaging\state.json` |
-| Generated folder icons | `%LOCALAPPDATA%\FolderManaging\Icons` |
+| Folder icons (readable by every account on the PC) | `%ProgramData%\FolderManaging\Icons` |
+| Menu icons; folder icons of version 2.0 | `%LOCALAPPDATA%\FolderManaging\Icons` |
 | Error log (*Error log…* in the app) | `%LOCALAPPDATA%\FolderManaging\errors.log` |
 
 Nothing is sent anywhere; the app has no network access of its own.
 
+## FAQ
+
+**The previews of the files inside a colored folder are gone.**
+Windows draws a folder either with a custom icon or with small previews of the pictures and documents inside it, never
+both. A colored folder has a custom icon, so the previews go away. *Reset* brings them back.
+
+**A colored folder on a network drive or NAS looks plain.**
+Windows ignores `desktop.ini` on network locations it does not trust. Add the server to the Local intranet zone:
+Control Panel → Internet Options → Security → Local intranet → Sites → Advanced. *Check and repair folders* tells you
+when this is the reason.
+
+**I copied a colored folder to another PC (or a USB stick) and it is plain there.**
+The color is a `desktop.ini` in the folder plus an icon file on the PC that colored it; the icon does not travel with
+the folder. Install Folder Managing on the other PC, use Settings → *Export* here and *Import* there, or color the
+folder again.
+
+**A folder that came from a downloaded ZIP file keeps the standard icon.**
+Files from the internet carry a “downloaded from the internet” mark (Mark of the Web), and Windows ignores a marked
+`desktop.ini`. *Check and repair folders* removes the mark from the files Folder Managing wrote.
+
+**Other people who use this PC see my colored folders as plain.**
+Since 2.1.0 new icons go to a shared folder every account can read. Older folders move over the next time they change;
+*Check and repair folders* moves the rest.
+
+**My Quick access pins flicker or move after I color a pinned folder.**
+Windows saves a copy of the folder's attributes at the moment you pin it. A folder pinned before it was colored keeps
+the old copy, and the navigation pane shows it plain. The only way to update the copy is to unpin and pin again, and a
+new pin always goes to the end of the list. So Folder Managing pins that folder and every pin after it again, in the
+same order — open Explorer windows redraw once. It does this after you color or reset a pinned folder, once when the
+app starts, and from *Check and repair folders*; automatically for at most 8 pins. Windows' own items (Desktop,
+Downloads, Documents…), libraries and network locations are never touched. If the PC turns off in the middle, the app
+finishes the job on its next start.
+
+**Can I still use “Pin to Quick access” from Windows or in the Open and Save dialogs of other apps?**
+Yes. Folder Managing's *Pin folder* uses the same Windows list. A folder you pinned through Windows before coloring it
+is refreshed the same way as above.
+
 ## Build from source
 
-Requirements: Windows 11, [.NET 8 SDK](https://dotnet.microsoft.com/download/dotnet/8.0), and for the installer the
+Requirements: Windows 11, [.NET 10 SDK](https://dotnet.microsoft.com/download/dotnet/10.0), and for the installer the
 Windows SDK (`makeappx.exe`, `signtool.exe`).
 
 ```powershell

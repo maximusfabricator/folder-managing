@@ -6,6 +6,7 @@ using FolderManaging.Cli.Shell;
 using FolderManaging.Core;
 using FolderManaging.Core.Diagnostics;
 using FolderManaging.Core.Localization;
+using FolderManaging.Core.QuickAccess;
 using FolderManaging.Core.ShellProperties;
 using FolderManaging.Core.Storage;
 
@@ -21,6 +22,16 @@ internal static class Program
             string.Equals(args[0].Trim(), "--elevated-worker", StringComparison.OrdinalIgnoreCase))
         {
             return ElevatedCliInvoker.RunWorkerServer();
+        }
+
+        if (args.Length > 0 &&
+            string.Equals(args[0].Trim(), "repair-pins", StringComparison.OrdinalIgnoreCase))
+        {
+            // --auto: started after a color change; small batches only and never waits for another run.
+            var automatic = args.Skip(1).Any(a => string.Equals(a.Trim(), "--auto", StringComparison.OrdinalIgnoreCase));
+            var result = QuickAccessService.RefreshStalePins(automatic);
+            Console.WriteLine($"{result.Outcome}: {string.Join(" | ", result.Paths)} {result.Reason}".TrimEnd());
+            return result.Outcome is PinRefreshOutcome.Failed ? 14 : 0;
         }
 
         if (args.Length > 0 &&

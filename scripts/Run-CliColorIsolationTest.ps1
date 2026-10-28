@@ -7,7 +7,7 @@ $ErrorActionPreference = "Stop"
 $candidates = @(
     (Join-Path (Split-Path $PSScriptRoot -Parent) "artifacts\FolderManaging.Cli.exe"),
     (Join-Path (Split-Path $PSScriptRoot -Parent) "artifacts\SparseLayout\FolderManaging.Cli.exe"),
-    (Join-Path (Split-Path $PSScriptRoot -Parent) "src\FolderManaging.Cli\bin\Release\net8.0-windows\FolderManaging.Cli.exe")
+    (Join-Path (Split-Path $PSScriptRoot -Parent) "src\FolderManaging.Cli\bin\Release\net10.0-windows\FolderManaging.Cli.exe")
 )
 
 $exe = $null

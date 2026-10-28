@@ -7,6 +7,7 @@ using FolderManaging.Companion.Localization;
 using FolderManaging.Core.Diagnostics;
 using FolderManaging.Core.Localization;
 using FolderManaging.Core.Models;
+using FolderManaging.Core.Storage;
 using Wpf.Ui.Controls;
 using WpfButton = Wpf.Ui.Controls.Button;
 using WpfTextBlock = System.Windows.Controls.TextBlock;
@@ -290,6 +291,7 @@ public partial class ContextMenuPage : System.Windows.Controls.UserControl
                 0 => UiText.Get("NotePresetsEmpty"),
                 var n => UiText.Format("NotePresetsCount", n),
             },
+            ContextMenuItemKinds.RecentColors => UiText.Get("NoteRecent"),
             ContextMenuItemKinds.SystemPalette => UiText.Get("NotePalette"),
             ContextMenuItemKinds.Reset => UiText.Get("NoteReset"),
             ContextMenuItemKinds.Tags => TagRows(doc).Count switch
@@ -334,6 +336,10 @@ public partial class ContextMenuPage : System.Windows.Controls.UserControl
                         lines.Add((t, false));
                     }
                     break;
+                case ContextMenuItemKinds.RecentColors:
+                    foreach (var name in RecentNames(doc))
+                        lines.Add((UiText.Format("RecentLine", name), false));
+                    break;
                 case ContextMenuItemKinds.SystemPalette:
                     foreach (var key in new[] { "PalRed", "PalOrange", "PalYellow", "PalLime", "PalGreen", "PalTeal", "PalCyan", "PalBlue", "PalIndigo", "PalPurple", "PalPink", "PalBrown", "PalGray" })
                         lines.Add((UiText.Format("ColorLine", UiText.Get(key)), false));
@@ -361,6 +367,24 @@ public partial class ContextMenuPage : System.Windows.Controls.UserControl
             ? UiText.Get("MenuEmpty")
             : UiText.Format("MenuLineCount", count);
         PreviewCount.SetResourceReference(WpfTextBlock.ForegroundProperty, "TextFillColorSecondaryBrush");
+    }
+
+    /// <summary>The names the Explorer menu shows for the last three colors (same rules as the shell's menu builder).</summary>
+    static IEnumerable<string> RecentNames(AppStateDocument doc)
+    {
+        foreach (var token in (doc.RecentColors ?? []).Take(3))
+        {
+            if (token.StartsWith("rgb-", StringComparison.OrdinalIgnoreCase))
+            {
+                if (MenuColorHex.TryParse(token[4..], out var rgb))
+                    yield return "#" + MenuColorHex.ToHexRgb(rgb);
+                continue;
+            }
+
+            var preset = doc.MenuColors.FirstOrDefault(c => string.Equals(c.Id, token, StringComparison.OrdinalIgnoreCase));
+            if (preset is not null)
+                yield return string.IsNullOrWhiteSpace(preset.Label) ? "#" + preset.HexRgb.Trim().TrimStart('#').ToUpperInvariant() : preset.Label;
+        }
     }
 
     static List<MenuColorPreset> PresetRows(AppStateDocument doc) =>

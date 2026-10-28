@@ -17,8 +17,15 @@ public static class MenuColorHex
         if (string.IsNullOrWhiteSpace(hex))
             return false;
 
-        var s = hex.Trim().TrimStart('#');
-        if (s.Length == 6 &&
+        var s = hex.Trim();
+        if (s.StartsWith('#'))
+            s = s[1..].TrimStart();
+        else if (s.StartsWith("0x", StringComparison.OrdinalIgnoreCase))
+            s = s[2..];
+        // Short CSS form: #f80 is #ff8800.
+        if (s.Length == 3 && s.All(Uri.IsHexDigit))
+            s = string.Concat(s.Select(c => new string(c, 2)));
+        if (s.Length == 6 && s.All(Uri.IsHexDigit) &&
             uint.TryParse(s, NumberStyles.HexNumber, CultureInfo.InvariantCulture, out var rgb))
         {
             color = Color.FromArgb(

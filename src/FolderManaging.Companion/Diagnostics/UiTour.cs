@@ -102,6 +102,20 @@ internal static class UiTour
             }
         }
 
+        main.NavigateTo(typeof(Pages.SettingsPage));
+        await Settle(main, 900);
+        if (Descendants(main).OfType<Pages.SettingsPage>().FirstOrDefault() is { } settings)
+        {
+            settings.ShowChecksForTour(Enum.GetValues<FolderIssue>()
+                .Select((issue, i) => new FolderCheck($@"C:\Users\Public\Documents\Project folder {i + 1}", [issue]))
+                .Append(new FolderCheck(@"D:\Photos\2026", [FolderIssue.IconMissing, FolderIssue.StalePin]))
+                .ToList());
+            await Settle(main, 600);
+            if (ScrollToEnd(main))
+                await Settle(main, 500);
+            Save(main, prefix + "settings-repair");
+        }
+
         main.NavigateTo(typeof(Pages.ColorsPage));
         await Settle(main, 900);
         if (Press(main, UiText.Get("Edit")))
@@ -127,6 +141,19 @@ internal static class UiTour
             "Folder Managing",
             MessageBoxButton.YesNo,
             MessageBoxImage.Warning));
+        string[] samplePaths = [@"C:\Program Files\Contoso Software", @"C:\Program Files (x86)\Fabrikam\Data", @"C:\Windows\Web\Wallpaper"];
+        CaptureModal(prefix + "dialog-uac-many", () => FmMessageBox.Show(
+            main,
+            UiText.Format("UacProtectedMany", samplePaths.Length, string.Join("\n", samplePaths.Select(UiText.LeftToRight))),
+            "Folder Managing",
+            MessageBoxButton.YesNo,
+            MessageBoxImage.Warning));
+        CaptureModal(prefix + "dialog-reset-all", () => FmMessageBox.Show(
+            main, UiText.Format("ResetAllConfirm", 12), "Folder Managing", MessageBoxButton.YesNo, MessageBoxImage.Question));
+        CaptureModal(prefix + "dialog-import", () => FmMessageBox.Show(
+            main, UiText.Get("ImportConfirm"), UiText.Get("ImportSettings"), MessageBoxButton.YesNo, MessageBoxImage.Question));
+        CaptureModal(prefix + "dialog-import-done", () => FmMessageBox.Show(
+            main, UiText.Format("ImportDone", 6, 4, 10, 2), UiText.Get("ImportSettings"), MessageBoxButton.OK, MessageBoxImage.Information));
         if (!_offScreen)
         {
             CaptureModal(prefix + "native-tip", () => NativeMessageBox.Show(
@@ -141,6 +168,13 @@ internal static class UiTour
         await Settle(quick, 1200);
         Save(quick, prefix + "quick-color");
         quick.Close();
+
+        var quickMany = new QuickColorWindow(samplePaths) { Topmost = true, ShowActivated = false };
+        KeepOffScreen(quickMany);
+        quickMany.Show();
+        await Settle(quickMany, 1200);
+        Save(quickMany, prefix + "quick-color-many");
+        quickMany.Close();
 
         var license = Path.Combine(AppContext.BaseDirectory, AppInfo.LicenseFileName);
         if (File.Exists(license))

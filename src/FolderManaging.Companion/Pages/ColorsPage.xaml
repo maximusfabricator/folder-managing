@@ -26,11 +26,22 @@
                        Text="{loc:Loc ColorsHint}" />
         </StackPanel>
 
-        <ui:Button Grid.Row="1" Margin="0,16,0,0"
-                   Appearance="Primary"
-                   Icon="{ui:SymbolIcon Symbol=Add24}"
-                   Content="{loc:Loc AddColor}"
-                   Click="OnAddColorClick" />
+        <!-- Hidden while the editor is open: in a small window the list would get no room at all. -->
+        <WrapPanel x:Name="ColorsToolbar" Grid.Row="1" Margin="0,16,0,0" Orientation="Horizontal">
+            <ui:Button Margin="0,0,24,8" VerticalAlignment="Center"
+                       Appearance="Primary"
+                       Icon="{ui:SymbolIcon Symbol=Add24}"
+                       Content="{loc:Loc AddColor}"
+                       Click="OnAddColorClick" />
+            <TextBlock Style="{StaticResource FmTextSecondary}" Margin="0,0,8,8" VerticalAlignment="Center" Opacity="0.8"
+                       Text="{loc:Loc SchemesLabel}" />
+            <ComboBox x:Name="SchemeCombo" Margin="0,0,8,8" MinWidth="240" VerticalAlignment="Center" />
+            <ui:Button x:Name="AddSchemeButton" Margin="0,0,0,8" VerticalAlignment="Center"
+                       Appearance="Secondary"
+                       Icon="{ui:SymbolIcon Symbol=ColorBackground24}"
+                       Content="{loc:Loc AddScheme}"
+                       Click="OnAddSchemeClick" />
+        </WrapPanel>
 
         <ScrollViewer Grid.Row="2" Margin="0,16,0,0" VerticalScrollBarVisibility="Auto">
             <ItemsControl x:Name="ColorItems">
@@ -133,7 +144,7 @@
 
                     <TextBlock Style="{StaticResource FmTextSecondary}" Grid.Row="4" Grid.Column="0" Margin="0,14,0,0" VerticalAlignment="Center" Opacity="0.8" Text="HEX" />
                     <ui:TextBox Grid.Row="4" Grid.Column="1" Margin="8,14,0,0" MaxWidth="180" HorizontalAlignment="Left"
-                                x:Name="HexEditor" MaxLength="6" PlaceholderText="RRGGBB" TextChanged="OnEditorHexChanged" />
+                                x:Name="HexEditor" MaxLength="7" PlaceholderText="RRGGBB" TextChanged="OnEditorHexChanged" />
 
                     <StackPanel Grid.Row="5" Grid.Column="0" Grid.ColumnSpan="2"
                                 Margin="0,18,0,0" Orientation="Horizontal" HorizontalAlignment="Right">

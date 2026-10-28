@@ -15,12 +15,16 @@ namespace FolderManaging.Companion;
 /// </summary>
 internal static class FolderWriteGuard
 {
+    /// <summary>The paths listed in a message; the rest is "…".</summary>
+    const int ListedPaths = 8;
+
     /// <returns><c>null</c> when the folder now matches the saved state, otherwise the reason for the user.</returns>
     internal static async Task<string?> SyncAsync(Window? owner, string folderPath)
     {
         try
         {
             await Task.Run(() => FolderIconManager.SyncFolderTags(folderPath));
+            PinRefreshScheduler.Request();
             return null;
         }
         catch (UnauthorizedAccessException ex)
@@ -33,7 +37,7 @@ internal static class FolderWriteGuard
             return ex.Message;
         }
 
-        if (!CompanionState.Document.AutoElevateProtectedFolders && !AskElevation(owner, folderPath))
+        if (!CompanionState.Document.AutoElevateProtectedFolders && !AskElevation(owner, [folderPath]))
             return UiText.Get("UacOnce");
 
         var (ok, error) = await Task.Run(() =>
@@ -42,18 +46,64 @@ internal static class FolderWriteGuard
             return (done, message);
         });
         if (ok)
+        {
+            PinRefreshScheduler.Request();
             return null;
-        return string.Equals(error, "User cancelled UAC.", StringComparison.Ordinal) ? UiText.Get("UacOnce") : error;
+        }
+
+        return string.Equals(error, ElevatedCliInvoker.UacCancelledMessage, StringComparison.Ordinal) ? UiText.Get("UacOnce") : error;
     }
 
-    static bool AskElevation(Window? owner, string folderPath)
+    /// <summary>
+    /// Runs the actions off the UI thread; protected folders together through the elevated worker (one UAC prompt).
+    /// The caller reloads <see cref="CompanionState"/> afterwards: the actions write <c>state.json</c> themselves.
+    /// </summary>
+    internal static async Task<FolderBatchResult> RunAsync(Window? owner, IReadOnlyList<FolderAction> actions)
     {
-        var answer = FmMessageBox.Show(
-            owner,
-            UiText.Format("UacProtected", UiText.LeftToRight(folderPath)),
-            "Folder Managing",
-            MessageBoxButton.YesNo,
-            MessageBoxImage.Warning);
+        var autoElevate = CompanionState.Document.AutoElevateProtectedFolders;
+        var dispatcher = System.Windows.Application.Current.Dispatcher;
+        var result = await Task.Run(() => FolderBatch.Run(actions, paths =>
+            autoElevate || dispatcher.Invoke(() => AskElevation(owner, paths))));
+        CompanionState.ReloadFromDiskIfStale();
+        PinRefreshScheduler.Request();
+        return result;
+    }
+
+    /// <summary><see cref="FolderDiagnostics.Repair"/> off the UI thread, asking like <see cref="RunAsync"/>.</summary>
+    internal static async Task<FolderBatchResult> RepairAsync(Window? owner, IReadOnlyList<FolderCheck> checks)
+    {
+        var autoElevate = CompanionState.Document.AutoElevateProtectedFolders;
+        var dispatcher = System.Windows.Application.Current.Dispatcher;
+        var result = await Task.Run(() => FolderDiagnostics.Repair(checks, paths =>
+            autoElevate || dispatcher.Invoke(() => AskElevation(owner, paths))));
+        CompanionState.ReloadFromDiskIfStale();
+        return result;
+    }
+
+    /// <summary>One message for the folders that could not be changed; nothing when all went well.</summary>
+    internal static void Report(Window? owner, FolderBatchResult result)
+    {
+        var failed = result.Failed.Where(f => f.Message.Length > 0).ToList();
+        string? text = null;
+        if (failed.Count == 1)
+            text = UiText.Format("ChangeFolderFail", UiText.LeftToRight(failed[0].Path), failed[0].Message);
+        else if (failed.Count > 1)
+            text = UiText.Format("ChangeFoldersFail", failed.Count,
+                string.Join("\n", failed.Take(ListedPaths).Select(f => UiText.LeftToRight(f.Path) + " — " + f.Message)) +
+                (failed.Count > ListedPaths ? "\n…" : ""));
+        else if (result.ElevationDeclined)
+            text = UiText.Get("UacOnce");
+        if (text is not null)
+            FmMessageBox.Show(owner, text, "Folder Managing", MessageBoxButton.OK, MessageBoxImage.Warning);
+    }
+
+    static bool AskElevation(Window? owner, IReadOnlyList<string> paths)
+    {
+        var text = paths.Count == 1
+            ? UiText.Format("UacProtected", UiText.LeftToRight(paths[0]))
+            : UiText.Format("UacProtectedMany", paths.Count,
+                string.Join("\n", paths.Take(ListedPaths).Select(UiText.LeftToRight)) + (paths.Count > ListedPaths ? "\n…" : ""));
+        var answer = FmMessageBox.Show(owner, text, "Folder Managing", MessageBoxButton.YesNo, MessageBoxImage.Warning);
         return answer == MessageBoxResult.Yes;
     }
 }

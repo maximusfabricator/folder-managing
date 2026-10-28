@@ -120,7 +120,11 @@ public partial class ManageFoldersPage : System.Windows.Controls.UserControl
             CompanionState.ReloadFromDiskIfStale();
 
         var doc = CompanionState.Document;
-        if (RemoveMissingFolders(doc))
+        // A renamed folder is followed, not dropped.
+        var moved = FolderRelocator.FindMoved(doc);
+        if (moved.Count > 0)
+            App.SyncMovedInBackground(moved.Select(m => m.To).ToList());
+        if (RemoveMissingFolders(doc) || moved.Count > 0)
             CompanionState.Save();
 
         var list = doc.Folders
@@ -136,6 +140,8 @@ public partial class ManageFoldersPage : System.Windows.Controls.UserControl
         FoldersGrid.ItemsSource = _rows;
         EmptyHint.Visibility = list.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
         FoldersGrid.Visibility = list.Count == 0 ? Visibility.Collapsed : Visibility.Visible;
+        ResetAllButton.IsEnabled = list.Any(r => r.HasColor || r.HasTags);
+        UpdateSelectionButtons();
         Dispatcher.BeginInvoke(FitActions, DispatcherPriority.Loaded);
     }
 
@@ -183,7 +189,7 @@ public partial class ManageFoldersPage : System.Windows.Controls.UserControl
     double PathWidthNeeded()
     {
         if (_rows is null || _rows.Select(row => PathColumn.GetCellContent(row)).OfType<TextBlock>().FirstOrDefault()
-                is not { Parent: DataGridCell cell } text)
+                is not { Parent: System.Windows.Controls.DataGridCell cell } text)
             return 0;
 
         var padding = cell.Padding.Left + cell.Padding.Right + text.Margin.Left + text.Margin.Right + 1;
@@ -248,7 +254,16 @@ public partial class ManageFoldersPage : System.Windows.Controls.UserControl
         }
         catch (Exception ex)
         {
-            ClickTrace.Step($"PinManager.Unpin failed (continuing state clear): {ex.Message}");
+            // Windows kept the pin: the list must keep saying so.
+            ClickTrace.Fail(ex);
+            scope.MarkFinished();
+            FmMessageBox.Show(
+                Window.GetWindow(this),
+                UiText.Format("ChangeFolderFail", UiText.LeftToRight(row.Entry.Path), ex.Message),
+                "Folder Managing",
+                MessageBoxButton.OK,
+                MessageBoxImage.Warning);
+            return;
         }
 
         var doc = CompanionState.Document;
@@ -285,6 +300,59 @@ public partial class ManageFoldersPage : System.Windows.Controls.UserControl
         await SaveAndWriteFolderAsync(row.Entry, undo: () => row.Entry.ColorToken = previous);
         scope.MarkFinished();
         Reload(forceDisk: false);
+    }
+
+    void OnSelectionChanged(object sender, SelectionChangedEventArgs e) => UpdateSelectionButtons();
+
+    void UpdateSelectionButtons() =>
+        ResetSelectedButton.IsEnabled = SelectedRows().Any(r => r.HasColor || r.HasTags);
+
+    List<ManagedFolderRow> SelectedRows() => FoldersGrid.SelectedItems.OfType<ManagedFolderRow>().ToList();
+
+    async void OnResetSelectedClick(object sender, RoutedEventArgs e) =>
+        await ResetAsync(SelectedRows(), "reset-selected");
+
+    async void OnResetAllClick(object sender, RoutedEventArgs e)
+    {
+        var rows = _rows?.ToList() ?? [];
+        var count = rows.Count(r => r.HasColor || r.HasTags);
+        if (count == 0)
+            return;
+        var answer = FmMessageBox.Show(
+            Window.GetWindow(this),
+            UiText.Format("ResetAllConfirm", count),
+            "Folder Managing",
+            MessageBoxButton.YesNo,
+            MessageBoxImage.Question);
+        if (answer != MessageBoxResult.Yes)
+            return;
+        await ResetAsync(rows, "reset-all");
+    }
+
+    /// <summary>Color and tags off for these rows; protected folders together with one UAC prompt. Pins stay.</summary>
+    async Task ResetAsync(IReadOnlyList<ManagedFolderRow> rows, string action)
+    {
+        var paths = rows.Where(r => r.HasColor || r.HasTags).Select(r => r.Entry.Path).ToList();
+        if (paths.Count == 0)
+            return;
+        using var scope = ClickTrace.Begin("companion", action, detail: $"x{paths.Count}");
+        IsEnabled = false;
+        try
+        {
+            var result = await FolderWriteGuard.RunAsync(Window.GetWindow(this),
+                paths.Select(p => new FolderAction(FolderActionKind.Reset, p)).ToList());
+            if (result.AllDone)
+                ClickTrace.Ok($"x{result.Done.Count}");
+            else
+                ClickTrace.Fail($"{result.Failed.Count} not reset");
+            scope.MarkFinished();
+            FolderWriteGuard.Report(Window.GetWindow(this), result);
+        }
+        finally
+        {
+            IsEnabled = true;
+            Reload(forceDisk: true);
+        }
     }
 
     /// <summary>

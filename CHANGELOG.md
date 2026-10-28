@@ -1,5 +1,47 @@
 # Changelog
 
+## 2.1.0 — 2026-10-28
+
+### New
+
+- **Several folders at once.** Select folders in Explorer and pick a color, *Reset* or a tag: all of them change.
+  Folders that need administrator rights are done together, with one Windows (UAC) prompt.
+- **Quick color window:** type a color code (#3A86FF, 3A86FF or the short #38F), see your last five colors, and save
+  a color to *My colors* with one click. The Explorer menu has a new *Recent* block with your last three colors (it can
+  be moved or hidden on the Context menu page).
+- **Ready-made color schemes** on the Colors page: Vivid, Pastel, Earth, Ocean and Work status. *Add colors* puts the
+  scheme into *My colors*; colors you already have are skipped.
+- **Settings → Check and repair folders** explains why a colored folder looks plain and fixes what can be fixed: a
+  missing desktop.ini or icon, a missing Read-only attribute, the “downloaded from the internet” mark, icons only your
+  account can see, and Quick access pins that still show the folder as it was before it was colored. For a missing
+  folder, a folder you cannot open, or a network folder Windows does not trust, it tells you what to do.
+- **Settings → Export and import:** save colors, tags, the menu layout and the list of colored folders to a file and
+  load it on another PC or after a reinstall. Folders that do not exist there are skipped; nothing is deleted.
+- **Manage folders:** select several rows with Ctrl or Shift and *Reset selected*, or *Reset all* (Quick access pins
+  stay).
+- **Renamed and moved folders keep their place in the list.** Each colored folder gets an id in its desktop.ini; when
+  you rename a folder in Explorer, or move it next to where it was, the app follows it instead of forgetting it.
+- **Folder icons for every account.** Icons are now stored in a shared folder (%ProgramData%\FolderManaging\Icons), so
+  other people who sign in to the same PC see your colored folders too. Existing folders move over by themselves the
+  next time the app updates them; folders that need administrator rights move over with *Check and repair folders*.
+
+### Fixed
+
+- *Unpin folder* in the Explorer menu did nothing, and *Pin folder* on a folder that was already pinned unpinned it.
+  Both now do exactly what they say, and the Manage folders page shows an error instead of pretending a pin was
+  removed.
+- A folder that was pinned to Quick access before it was colored stayed plain in the navigation pane. The app now
+  pins such a folder again, together with the pins after it, in the same order. This happens after coloring or
+  resetting a pinned folder, once when the app starts, and from *Check and repair folders*. Windows' own items
+  (Desktop, Downloads, Documents and so on), libraries and network locations are never touched.
+
+### Changed
+
+- The app now runs on .NET 10 (long-term support until November 2028). The installer brings the .NET 10 Desktop Runtime
+  along if it is missing.
+- The settings file gets a new format. The first time 2.1.0 saves it, the old file is kept next to it as
+  state.v1.backup.json.
+
 ## 2.0.1 — 2026-10-28
 
 ### Fixed

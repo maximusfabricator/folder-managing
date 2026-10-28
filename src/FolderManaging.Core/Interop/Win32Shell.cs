@@ -5,7 +5,7 @@ using System.Runtime.InteropServices;
 
 namespace FolderManaging.Core.Interop;
 
-internal static class Win32Shell
+public static class Win32Shell
 {
     public const uint SHCNE_ASSOCCHANGED = 0x0800_0000;
     public const uint SHCNE_UPDATEDIR = 0x0000_1000;
@@ -53,4 +53,65 @@ internal static class Win32Shell
     /// <summary>Writes folder customization and invalidates Explorer's in-memory desktop.ini cache for that folder.</summary>
     [DllImport("shell32.dll", CharSet = CharSet.Unicode)]
     public static extern int SHGetSetFolderCustomSettings(ref SHFOLDERCUSTOMSETTINGS pfcs, string pszPath, uint dwReadWrite);
+
+    public static readonly Guid FolderIdDownloads = new("374DE290-123F-4565-9164-39C4925E467B");
+
+    [DllImport("shell32.dll", CharSet = CharSet.Unicode)]
+    static extern int SHGetKnownFolderPath(in Guid rfid, uint dwFlags, nint hToken, out nint ppszPath);
+
+    public static string? TryGetKnownFolderPath(Guid folderId)
+    {
+        if (SHGetKnownFolderPath(folderId, 0, 0, out var buffer) != 0)
+            return null;
+        try
+        {
+            return Marshal.PtrToStringUni(buffer);
+        }
+        finally
+        {
+            Marshal.FreeCoTaskMem(buffer);
+        }
+    }
+
+    public const uint SHCNE_RENAMEFOLDER = 0x0002_0000;
+    public const uint SHCNE_RMDIR = 0x0000_0010;
+    public const int SHCNRF_InterruptLevel = 0x0001;
+    public const int SHCNRF_ShellLevel = 0x0002;
+    public const int SHCNRF_NewDelivery = 0x8000;
+
+    [StructLayout(LayoutKind.Sequential)]
+    public struct SHChangeNotifyEntry
+    {
+        public nint pidl;
+        [MarshalAs(UnmanagedType.Bool)] public bool fRecursive;
+    }
+
+    [DllImport("shell32.dll")]
+    public static extern uint SHChangeNotifyRegister(nint hwnd, int fSources, uint fEvents, uint wMsg, int cEntries, ref SHChangeNotifyEntry pshcne);
+
+    [DllImport("shell32.dll")]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    public static extern bool SHChangeNotifyDeregister(uint ulId);
+
+    [DllImport("shell32.dll")]
+    public static extern nint SHChangeNotification_Lock(nint hChange, uint dwProcId, out nint pppidl, out int plEvent);
+
+    [DllImport("shell32.dll")]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    public static extern bool SHChangeNotification_Unlock(nint hLock);
+
+    [DllImport("shell32.dll", CharSet = CharSet.Unicode)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    static extern bool SHGetPathFromIDListW(nint pidl, [Out] char[] pszPath);
+
+    public static string? TryGetPathFromIdList(nint pidl)
+    {
+        if (pidl == 0)
+            return null;
+        var buffer = new char[32768];
+        if (!SHGetPathFromIDListW(pidl, buffer))
+            return null;
+        var end = Array.IndexOf(buffer, '\0');
+        return new string(buffer, 0, end < 0 ? buffer.Length : end);
+    }
 }

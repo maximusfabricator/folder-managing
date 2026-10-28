@@ -110,6 +110,8 @@ public sealed class FolderStateEditor
         }
 
         entry.ColorToken = colorToken;
+        if (colorToken is not null)
+            state.RememberRecentColor(colorToken);
         await _store.SaveAsync(state, cancellationToken).ConfigureAwait(false);
     }
 

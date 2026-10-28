@@ -18,6 +18,11 @@
             <Setter Property="FlowDirection" Value="LeftToRight" />
             <Setter Property="HorizontalAlignment" Value="Left" />
         </Style>
+        <!-- A narrow window wraps a long path onto a second line before trimming it. -->
+        <Style x:Key="PathCellStyle" TargetType="TextBlock" BasedOn="{StaticResource LtrCellStyle}">
+            <Setter Property="TextWrapping" Value="Wrap" />
+            <Setter Property="MaxHeight" Value="40" />
+        </Style>
         <!-- The text is in Tag: a list too narrow for it shows the icon alone, with the text as a tooltip. -->
         <Style x:Key="RowActionButton" TargetType="ui:Button" BasedOn="{StaticResource {x:Type ui:Button}}">
             <Setter Property="Appearance" Value="Secondary" />
@@ -36,6 +41,7 @@
     <Grid Margin="36,24,36,24">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
             <RowDefinition Height="*" />
         </Grid.RowDefinitions>
 
@@ -45,7 +51,21 @@
                        Text="{loc:Loc FoldersHint}" />
         </StackPanel>
 
-        <ui:Card Grid.Row="1" Padding="4" VerticalAlignment="Top">
+        <WrapPanel x:Name="Toolbar" Grid.Row="1" Margin="0,0,0,12" Orientation="Horizontal">
+            <ui:Button x:Name="ResetSelectedButton" Margin="0,0,8,0" Appearance="Secondary"
+                       Icon="{ui:SymbolIcon Symbol=ArrowReset24}"
+                       Content="{loc:Loc ResetSelected}"
+                       IsEnabled="False"
+                       Click="OnResetSelectedClick" />
+            <ui:Button x:Name="ResetAllButton" Margin="0,0,8,0" Appearance="Secondary"
+                       Icon="{ui:SymbolIcon Symbol=DeleteDismiss24}"
+                       Content="{loc:Loc ResetAll}"
+                       Click="OnResetAllClick" />
+            <TextBlock x:Name="SelectionHint" Style="{StaticResource FmTextSecondary}" VerticalAlignment="Center" Opacity="0.65"
+                       TextWrapping="Wrap" Text="{loc:Loc FoldersSelectHint}" />
+        </WrapPanel>
+
+        <ui:Card Grid.Row="2" Padding="4" VerticalAlignment="Top">
             <Grid>
                 <DataGrid x:Name="FoldersGrid"
                           AutoGenerateColumns="False"
@@ -53,7 +73,9 @@
                           CanUserDeleteRows="False"
                           HeadersVisibility="Column"
                           IsReadOnly="True"
-                          SelectionMode="Single"
+                          SelectionMode="Extended"
+                          SelectionUnit="FullRow"
+                          SelectionChanged="OnSelectionChanged"
                           GridLinesVisibility="Horizontal"
                           BorderThickness="0"
                           Background="Transparent"
@@ -62,7 +84,7 @@
                           SizeChanged="OnGridSizeChanged">
                     <DataGrid.Columns>
                         <DataGridTextColumn x:Name="PathColumn" Header="{loc:Loc ColPath}" Binding="{Binding PathDisplay}" Width="*"
-                                            ElementStyle="{StaticResource LtrCellStyle}" />
+                                            ElementStyle="{StaticResource PathCellStyle}" />
                         <DataGridTextColumn Header="{loc:Loc ColColor}" Binding="{Binding ColorDisplay}" Width="Auto"
                                             ElementStyle="{StaticResource LtrCellStyle}" />
                         <DataGridTextColumn Header="{loc:Loc ColTags}" Binding="{Binding TagsDisplay}" Width="Auto" MaxWidth="220"

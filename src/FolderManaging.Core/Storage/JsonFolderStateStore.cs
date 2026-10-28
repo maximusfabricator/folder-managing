@@ -37,6 +37,7 @@ public sealed class JsonFolderStateStore : IFolderStateStore
         // This file already existed. A missing flag is an older save, not a request for the four default tags.
         if (doc.DefaultTagsSeeded is null)
             doc.DefaultTagsSeeded = true;
+        StateMigration.Upgrade(doc, FolderIconManager.TryReadFolderId);
         MenuPresetNormalizer.Merge(doc);
         return doc;
     }
@@ -47,6 +48,8 @@ public sealed class JsonFolderStateStore : IFolderStateStore
         MenuPresetNormalizer.Merge(state);
         Directory.CreateDirectory(AppPaths.DataDirectory);
         var path = AppPaths.StateFilePath;
+        StateMigration.BackupIfOlder(path);
+        StateMigration.AssignMissingIds(state, FolderIconManager.TryReadFolderId);
         var tempPath = path + ".tmp";
 
         using (var stream = new FileStream(
@@ -89,6 +92,7 @@ public sealed class JsonFolderStateStore : IFolderStateStore
         // This file already existed. A missing flag is an older save, not a request for the four default tags.
         if (doc.DefaultTagsSeeded is null)
             doc.DefaultTagsSeeded = true;
+        StateMigration.Upgrade(doc, FolderIconManager.TryReadFolderId);
         MenuPresetNormalizer.Merge(doc);
         return doc;
     }
@@ -97,6 +101,8 @@ public sealed class JsonFolderStateStore : IFolderStateStore
     {
         Directory.CreateDirectory(AppPaths.DataDirectory);
         var path = AppPaths.StateFilePath;
+        StateMigration.BackupIfOlder(path);
+        StateMigration.AssignMissingIds(state, FolderIconManager.TryReadFolderId);
         var tempPath = path + ".tmp";
 
         await using (var stream = new FileStream(

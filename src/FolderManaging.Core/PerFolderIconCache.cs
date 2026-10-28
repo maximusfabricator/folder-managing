@@ -12,7 +12,7 @@ namespace FolderManaging.Core;
 /// Writes a per-folder, per-apply versioned copy of a tinted folder icon. Explorer caches folder icons
 /// <b>by file path</b>, so reusing <c>coral.ico</c> across changes leaves the previous render visible.
 /// Each successful <see cref="Apply"/> writes a fresh path under
-/// <c>%LocalAppData%\FolderManaging\Icons\Folders\&lt;hash&gt;-&lt;tag&gt;-&lt;ticks&gt;.ico</c>
+/// <c>&lt;FolderIconsDirectory&gt;\&lt;hash&gt;-&lt;tag&gt;-&lt;ticks&gt;.ico</c> (shared store under <c>%ProgramData%</c> when installed)
 /// and best-effort deletes earlier versioned files for the same folder hash.
 /// </summary>
 internal static class PerFolderIconCache
@@ -60,6 +60,10 @@ internal static class PerFolderIconCache
         var dir = EnsureFolderIconCacheDir();
         var hash = ComputeFolderHash(folderFullPath);
 
+        var legacyDir = AppPaths.PerUserFolderIconsDirectory;
+        if (!string.Equals(Path.GetFullPath(legacyDir), Path.GetFullPath(dir), StringComparison.OrdinalIgnoreCase))
+            DeleteAll(legacyDir, hash, keepPath);
+
         IEnumerable<string> files;
         try
         {
@@ -89,6 +93,46 @@ internal static class PerFolderIconCache
         }
     }
 
+    /// <summary>Per-user copies left from before the shared store, once the folder no longer points at them.</summary>
+    static void DeleteAll(string dir, string hash, string? keepPath)
+    {
+        try
+        {
+            if (!Directory.Exists(dir))
+                return;
+            foreach (var f in Directory.EnumerateFiles(dir, $"{hash}-*.ico"))
+            {
+                if (keepPath is not null && string.Equals(Path.GetFullPath(f), Path.GetFullPath(keepPath), StringComparison.OrdinalIgnoreCase))
+                    continue;
+                try
+                {
+                    File.Delete(f);
+                }
+                catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+                {
+                    // still in use by Explorer: the next change takes it
+                }
+            }
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+        }
+    }
+
+    /// <summary>True when the icon lies in the store new icons go to (see <see cref="AppPaths.FolderIconsDirectory"/>).</summary>
+    internal static bool IsInCurrentStore(string iconPath)
+    {
+        try
+        {
+            return string.Equals(Path.GetDirectoryName(Path.GetFullPath(iconPath)),
+                Path.GetFullPath(AppPaths.FolderIconsDirectory), StringComparison.OrdinalIgnoreCase);
+        }
+        catch (Exception ex) when (ex is ArgumentException or NotSupportedException or PathTooLongException)
+        {
+            return false;
+        }
+    }
+
     /// <summary>Color tag (preset id + hex, e.g. <c>red-ffb356</c>).</summary>
     internal static string TagForPresetId(string colorId, string? hexRgb = null)
     {
@@ -114,7 +158,7 @@ internal static class PerFolderIconCache
 
     static string EnsureFolderIconCacheDir()
     {
-        var dir = Path.Combine(AppPaths.GeneratedIconsDirectory, FoldersSubdirectory);
+        var dir = AppPaths.FolderIconsDirectory;
         Directory.CreateDirectory(dir);
         return dir;
     }

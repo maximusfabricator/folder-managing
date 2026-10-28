@@ -11,6 +11,7 @@ public static class ContextMenuItemKinds
     public const string Pin = "pin";
     public const string QuickColor = "quick-color";
     public const string ColorPresets = "color-presets";
+    public const string RecentColors = "recent-colors";
     public const string SystemPalette = "system-palette";
     public const string Reset = "reset";
     public const string Tags = "tags";
@@ -18,7 +19,7 @@ public static class ContextMenuItemKinds
     public const string Separator = "separator";
 
     public static readonly IReadOnlyList<string> Singletons =
-        new[] { Pin, QuickColor, ColorPresets, SystemPalette, Reset, Tags, Settings };
+        new[] { Pin, QuickColor, RecentColors, ColorPresets, SystemPalette, Reset, Tags, Settings };
 
     /// <summary>Kinds that render one menu line and therefore accept a custom label.</summary>
     public static bool SupportsLabel(string kind) => kind is QuickColor or Reset or Settings;
@@ -35,6 +36,7 @@ public static class ContextMenuItemKinds
     {
         Pin => UiText.Get("KindPin"),
         QuickColor => UiText.Get("KindQuick"),
+        RecentColors => UiText.Get("KindRecent"),
         ColorPresets => UiText.Get("KindPresets"),
         SystemPalette => UiText.Get("KindPalette"),
         Reset => UiText.Get("KindReset"),
@@ -74,6 +76,7 @@ public sealed class ContextMenuLayout
             new() { Kind = ContextMenuItemKinds.Pin },
             new() { Kind = ContextMenuItemKinds.Separator },
             new() { Kind = ContextMenuItemKinds.QuickColor },
+            new() { Kind = ContextMenuItemKinds.RecentColors },
             new() { Kind = ContextMenuItemKinds.ColorPresets },
             new() { Kind = ContextMenuItemKinds.SystemPalette, Visible = false },
             new() { Kind = ContextMenuItemKinds.Separator },
@@ -135,8 +138,25 @@ public sealed class ContextMenuLayout
         // Do NOT strip trailing separators here — "Add separator" appends at the end; removing them
         // made the button look broken. MenuBuilder already ignores a trailing pending separator.
 
-        foreach (var d in defaults.Entries.Where(d => d.Kind != ContextMenuItemKinds.Separator && !seen.Contains(d.Kind)))
-            result.Entries.Add(d.Clone());
+        // A block added in a newer version goes right after its neighbor from the default layout.
+        for (var i = 0; i < defaults.Entries.Count; i++)
+        {
+            var d = defaults.Entries[i];
+            if (d.Kind == ContextMenuItemKinds.Separator || seen.Contains(d.Kind))
+                continue;
+            var at = result.Entries.Count;
+            for (var j = i - 1; j >= 0; j--)
+            {
+                var before = result.Entries.FindIndex(e => e.Kind == defaults.Entries[j].Kind && e.Kind != ContextMenuItemKinds.Separator);
+                if (before < 0)
+                    continue;
+                at = before + 1;
+                break;
+            }
+
+            result.Entries.Insert(at, d.Clone());
+            seen.Add(d.Kind);
+        }
 
         return result;
     }

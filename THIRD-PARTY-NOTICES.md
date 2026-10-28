@@ -8,9 +8,8 @@ All of them use the MIT License, which is compatible with GPL-2.0.
 | --- | --- | --- | --- |
 | WPF UI (`Wpf.Ui`, `Wpf.Ui.Abstractions`) | 4.2.1 | Fluent controls in the app and the installer | https://github.com/lepoco/wpfui |
 | Vanara (`Vanara.Core`, `Vanara.PInvoke.*`) | 4.2.1 | Windows Shell interop in the Explorer extension | https://github.com/dahall/vanara |
-| `System.Drawing.Common`, `Microsoft.Win32.SystemEvents` | 8.0.10 / 8.0.0 | Building folder icons | https://github.com/dotnet/winforms |
-| `System.IO.Pipes.AccessControl`, `System.Security.AccessControl`, `System.Security.Principal.Windows` | 5.0.0 | Securing the elevated helper pipe | https://github.com/dotnet/runtime |
-| .NET 8 Desktop Runtime (bundled with the installer) | 8.x | Running the app | https://github.com/dotnet/runtime, https://github.com/dotnet/wpf, https://github.com/dotnet/winforms |
+| `System.Drawing.Common`, `Microsoft.Win32.SystemEvents` | 10.0.0 | Building folder icons | https://github.com/dotnet/winforms |
+| .NET 10 Desktop Runtime (bundled with the installer) | 10.x | Running the app | https://github.com/dotnet/runtime, https://github.com/dotnet/wpf, https://github.com/dotnet/winforms |
 
 ---
 
@@ -66,10 +65,9 @@ SOFTWARE.
 
 ---
 
-## .NET libraries and the .NET 8 Desktop Runtime
+## .NET libraries and the .NET 10 Desktop Runtime
 
-Covers `System.Drawing.Common`, `Microsoft.Win32.SystemEvents`, `System.IO.Pipes.AccessControl`,
-`System.Security.AccessControl`, `System.Security.Principal.Windows` and the bundled .NET 8 Desktop Runtime installer.
+Covers `System.Drawing.Common`, `Microsoft.Win32.SystemEvents` and the bundled .NET 10 Desktop Runtime installer.
 
 The MIT License (MIT)
 

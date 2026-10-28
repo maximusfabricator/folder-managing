@@ -107,9 +107,10 @@ public static class UiText
 
     /// <summary>
     /// A path for a message, kept in one left-to-right piece. Right-to-left text otherwise moves its ends:
-    /// "C:\Program Files (x86)" would show as "(C:\Program Files (x86".
+    /// "C:\Program Files (x86)" would show as "(C:\Program Files (x86". The marks inside keep digits at the ends
+    /// ("Project 4", "D:\Photos\2026") on their side when the path stands alone on a line.
     /// </summary>
-    public static string LeftToRight(string value) => IsRightToLeft ? "\u202A" + value + "\u202C" : value;
+    public static string LeftToRight(string value) => IsRightToLeft ? "\u202A\u200E" + value + "\u200E\u202C" : value;
 
     /// <summary>The embedded table for <paramref name="code"/> as shipped (empty when there is none).</summary>
     public static IReadOnlyDictionary<string, string> Strings(string code) => Tables.GetOrAdd(code, Load);

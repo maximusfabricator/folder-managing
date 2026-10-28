@@ -14,4 +14,10 @@ public sealed class FolderStateEntry
 
     /// <summary>Optional logical color name (Phase 3).</summary>
     public string? ColorToken { get; set; }
+
+    /// <summary>
+    /// Also written into the folder's <c>desktop.ini</c> (<c>FolderId=</c>), so a renamed or moved folder can be found
+    /// again. Set when the folder first gets a color or tags.
+    /// </summary>
+    public string? Id { get; set; }
 }

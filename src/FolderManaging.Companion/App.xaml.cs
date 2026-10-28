@@ -5,6 +5,7 @@ using System.Windows;
 using FolderManaging.Core;
 using FolderManaging.Core.Diagnostics;
 using FolderManaging.Core.Localization;
+using FolderManaging.Core.QuickAccess;
 using Wpf.Ui.Controls;
 using MessageBoxButton = System.Windows.MessageBoxButton;
 
@@ -16,6 +17,7 @@ public partial class App : System.Windows.Application
     const string ShowEventName = @"Local\FolderManaging.Companion.Show";
 
     TrayIconService? _tray;
+    FolderRenameWatcher? _renameWatcher;
     bool _specialModeOnly;
     Mutex? _instanceMutex;
     EventWaitHandle? _showEvent;
@@ -54,6 +56,10 @@ public partial class App : System.Windows.Application
             return;
         }
 
+        // Renamed or moved while the app was not running: follow them before anything drops "missing" folders.
+        RelocateMovedFolders();
+        _renameWatcher = new FolderRenameWatcher();
+
         // Only the tray instance repairs desktop.ini files: a second launch exits at once and would cut the work off.
         // Protected folders (Program Files, Windows) come back as "denied" and need the elevated worker,
         // otherwise state.json and the Explorer column stay apart forever.
@@ -75,6 +81,23 @@ public partial class App : System.Windows.Application
             {
                 TraceLog.Append("shell-menu.log", $"[BOOT] RefreshAllFolderTags failed: {ex.Message}");
             }
+
+            // Quick access: finish a re-pin cut off last time, re-pin pins that show an old picture, then let the
+            // "Pinned" column follow what Windows really has pinned.
+            try
+            {
+                QuickAccessService.RefreshStalePins(automatic: true);
+                var pins = QuickAccessService.GetPinned();
+                await Dispatcher.InvokeAsync(() =>
+                {
+                    if (QuickAccessService.SyncPinnedFlags(CompanionState.Document, pins))
+                        CompanionState.Save();
+                });
+            }
+            catch (Exception ex)
+            {
+                TraceLog.Append("pins.log", $"[BOOT] Quick access check failed: {ex.Message}");
+            }
         });
 
         ShutdownMode = ShutdownMode.OnExplicitShutdown;
@@ -90,8 +113,45 @@ public partial class App : System.Windows.Application
         main.Show();
     }
 
+    /// <summary>Points entries at the folders' new paths and rewrites their <c>desktop.ini</c> in the background.</summary>
+    internal static void RelocateMovedFolders()
+    {
+        try
+        {
+            var moved = FolderRelocator.FindMoved(CompanionState.Document);
+            if (moved.Count == 0)
+                return;
+            CompanionState.Save();
+            foreach (var (from, to) in moved)
+                TraceLog.Append("shell-menu.log", $"[BOOT] folder moved '{from}' -> '{to}'");
+            SyncMovedInBackground(moved.Select(m => m.To).ToList());
+        }
+        catch (Exception ex)
+        {
+            TraceLog.Append("shell-menu.log", $"[BOOT] relocate failed: {ex.Message}");
+        }
+    }
+
+    /// <summary>The icon file is named after the folder path; a protected folder keeps its old one until Repair.</summary>
+    internal static void SyncMovedInBackground(IReadOnlyList<string> paths) =>
+        Task.Run(() =>
+        {
+            foreach (var path in paths)
+            {
+                try
+                {
+                    FolderIconManager.SyncFolderTags(path);
+                }
+                catch (Exception ex)
+                {
+                    TraceLog.Append("shell-menu.log", $"sync after move '{path}': {ex.Message}");
+                }
+            }
+        });
+
     protected override void OnExit(ExitEventArgs e)
     {
+        _renameWatcher?.Dispose();
         _tray?.Dispose();
         Tray = null;
         CompanionState.Shutdown();
@@ -162,7 +222,7 @@ public partial class App : System.Windows.Application
     }
 
     /// <summary>
-    /// <c>--quick-color [--path PATH]</c>.
+    /// <c>--quick-color [--path PATH]…</c> (one <c>--path</c> per selected folder).
     /// Returns true when the app should not open the main settings window.
     /// </summary>
     bool TryRunSpecialMode(string[] args)
@@ -171,7 +231,7 @@ public partial class App : System.Windows.Application
             return false;
 
         string? mode = null;
-        string? path = null;
+        var paths = new List<string>();
         for (var i = 0; i < args.Length; i++)
         {
             var a = args[i].Trim();
@@ -184,7 +244,7 @@ public partial class App : System.Windows.Application
 
             if (string.Equals(a, "--path", StringComparison.OrdinalIgnoreCase) && i + 1 < args.Length)
             {
-                path = args[++i].Trim().Trim('"');
+                paths.Add(args[++i].Trim().Trim('"'));
                 continue;
             }
         }
@@ -192,9 +252,9 @@ public partial class App : System.Windows.Application
         if (mode is null)
             return false;
 
-        ClickTrace.Step($"Companion special mode={mode} path='{path ?? "(none)"}'");
+        ClickTrace.Step($"Companion special mode={mode} paths={paths.Count} first='{paths.FirstOrDefault() ?? "(none)"}'");
 
-        var win = new QuickColorWindow(path);
+        var win = new QuickColorWindow(paths);
         win.Closed += (_, _) =>
         {
             if (_specialModeOnly)

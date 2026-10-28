@@ -1,4 +1,4 @@
-﻿// SPDX-License-Identifier: GPL-2.0-only
+// SPDX-License-Identifier: GPL-2.0-only
 // Copyright (C) 2026 maximusfabricator
 
 using System.Drawing;
@@ -88,6 +88,10 @@ internal static class MenuBuilder
                     AppendPresetItems(list, doc);
                     break;
 
+                case ContextMenuItemKinds.RecentColors:
+                    AppendRecentItems(list, doc);
+                    break;
+
                 case ContextMenuItemKinds.SystemPalette:
                     AppendSystemPalette(list);
                     break;
@@ -130,6 +134,36 @@ internal static class MenuBuilder
             var colorIcon = FolderIconManager.TryGetPresetIconMenuReference(row.Id);
             ClickTrace.Step($"MenuBuilder color id={row.Id} hex={row.HexRgb} title='{title}' icon={(colorIcon ?? "(none)")}");
             list.Add(new MenuActionExplorerCommand($"color-{row.Id}", title, "color", row.Id, colorIcon));
+        }
+    }
+
+    /// <summary>Rows shown for recently used colors (the app keeps a few more for the color wheel window).</summary>
+    internal const int RecentRows = 3;
+
+    /// <summary>Flat rows: Explorer's modern menu has a single submenu level, so "Recent" cannot open another one.</summary>
+    static void AppendRecentItems(List<Shell32.IExplorerCommand> list, AppStateDocument doc)
+    {
+        foreach (var token in (doc.RecentColors ?? []).Take(RecentRows))
+        {
+            string? name;
+            string? icon;
+            if (token.StartsWith("rgb-", StringComparison.OrdinalIgnoreCase))
+            {
+                if (!MenuColorHex.TryParse(token[4..], out var rgb))
+                    continue;
+                name = "#" + MenuColorHex.ToHexRgb(rgb);
+                icon = FolderIconManager.TryGetRgbIconMenuReference(rgb);
+            }
+            else
+            {
+                var preset = doc.MenuColors.FirstOrDefault(c => string.Equals(c.Id, token, StringComparison.OrdinalIgnoreCase));
+                if (preset is null)
+                    continue;
+                name = string.IsNullOrWhiteSpace(preset.Label) ? "#" + NormalizeHexForDisplay(preset.HexRgb) : preset.Label;
+                icon = FolderIconManager.TryGetPresetIconMenuReference(preset.Id);
+            }
+
+            list.Add(new MenuActionExplorerCommand($"recent-{token}", UiText.Format("RecentLine", name), "recent", token, icon));
         }
     }
 
