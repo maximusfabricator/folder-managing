@@ -6,7 +6,7 @@
   -->
   <PropertyGroup>
     <FmEdition Condition="'$(FmEdition)' == ''">Dev</FmEdition>
-    <Version>2.0.0</Version>
+    <Version>2.0.1</Version>
     <Product>Folder Managing</Product>
     <Company>maximusfabricator</Company>
     <Authors>maximusfabricator</Authors>
@@ -17,6 +17,12 @@
 
   <PropertyGroup Condition="'$(FmEdition)' == 'Dev'">
     <DefineConstants>$(DefineConstants);FM_DEV</DefineConstants>
+  </PropertyGroup>
+
+  <!-- User binaries must not name the machine they were built on. -->
+  <PropertyGroup Condition="'$(FmEdition)' == 'User'">
+    <Deterministic>true</Deterministic>
+    <PathMap>$(MSBuildThisFileDirectory)=/FolderManaging/</PathMap>
   </PropertyGroup>
 
 </Project>

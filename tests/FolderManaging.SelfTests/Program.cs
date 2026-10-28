@@ -91,6 +91,22 @@ static class Program
             Expect(labels.SequenceEqual(new[] { "Later", "Work" }), $"labels: {string.Join(";", labels)}");
         });
 
+        Check("new user: no state.json gives the built-in defaults and no folders", () =>
+        {
+            // What JsonFolderStateStore.LoadSynchronously returns on a PC that never ran the app.
+            var doc = new AppStateDocument();
+            MenuPresetNormalizer.Merge(doc);
+            Expect(doc.Folders.Count == 0, $"folders: {doc.Folders.Count}");
+            Expect(doc.MenuColors.Select(c => c.Id).Order().SequenceEqual(new[] { "blue", "green", "purple", "red" }),
+                $"colors: {string.Join(", ", doc.MenuColors.Select(c => c.Id))}");
+            Expect(doc.MenuColors.All(c => c.Label.Length == 0), "a color has a name");
+            Expect(doc.MenuTags.Select(t => t.Id).SequenceEqual(new[] { "work", "personal", "later", "archive" }),
+                $"tags: {string.Join(", ", doc.MenuTags.Select(t => t.Id))}");
+            Expect(doc.Language is null && doc.Theme == AppThemePreference.System && doc.AutoElevateProtectedFolders,
+                $"settings: language={doc.Language} theme={doc.Theme} autoElevate={doc.AutoElevateProtectedFolders}");
+            Expect(doc.ContextMenu is null && !doc.ColorSortTipShown, "menu layout or tip state is not the default");
+        });
+
         Check("default tags: deleting every tag must not bring the four defaults back", () =>
         {
             var doc = new AppStateDocument();

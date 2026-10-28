@@ -1,5 +1,13 @@
 # Changelog
 
+## 2.0.1 — 2026-10-28
+
+### Fixed
+
+- The taskbar showed the app icon on a square in the Windows accent color. The package now has icons in every
+  taskbar size without that background, made from the app icon itself.
+- The program files no longer contain the folder path of the PC the release was built on.
+
 ## 2.0.0 — 2026-10-27
 
 First public release.

@@ -90,7 +90,30 @@ function Save-ScaledPng([System.Drawing.Image] $source, [int] $size, [string] $p
     $bmp.Dispose()
 }
 
+# The PNG frames of the app icon, by size. They are sharper at small sizes than a scaled logo.
+function Read-IconFrames([string] $icoPath) {
+    $bytes = [System.IO.File]::ReadAllBytes($icoPath)
+    $frames = @{}
+    for ($k = 0; $k -lt [BitConverter]::ToUInt16($bytes, 4); $k++) {
+        $entry = 6 + 16 * $k
+        $size = if ($bytes[$entry] -eq 0) { 256 } else { [int]$bytes[$entry] }
+        $stream = New-Object System.IO.MemoryStream($bytes, [BitConverter]::ToInt32($bytes, $entry + 12), [BitConverter]::ToInt32($bytes, $entry + 8))
+        $image = [System.Drawing.Image]::FromStream($stream)
+        $frames[$size] = New-Object System.Drawing.Bitmap $image
+        $image.Dispose()
+        $stream.Dispose()
+    }
+    $frames
+}
+
+function Get-FrameFor([hashtable] $frames, [int] $size) {
+    $best = $frames.Keys | Where-Object { $_ -ge $size } | Sort-Object | Select-Object -First 1
+    if ($null -eq $best) { $best = $frames.Keys | Sort-Object | Select-Object -Last 1 }
+    $frames[$best]
+}
+
 $makeAppx = Resolve-WindowsSdkTool "makeappx.exe"
+$makePri = Resolve-WindowsSdkTool "makepri.exe"
 $signTool = Resolve-WindowsSdkTool "signtool.exe"
 
 # --- Release signing certificate (self-signed; Setup.exe trusts it in LocalMachine\TrustedPeople) ---
@@ -142,13 +165,30 @@ Copy-Item -LiteralPath (Join-Path $RepoRoot "sparse\FolderManaging.propdesc") -D
 Add-Type -AssemblyName System.Drawing
 $assets = Join-Path $layout "Assets"
 New-Item -ItemType Directory -Force -Path $assets | Out-Null
-$logo = [System.Drawing.Image]::FromFile((Join-Path $RepoRoot "logo.png"))
+$frames = Read-IconFrames (Join-Path $RepoRoot "assets\FolderManaging.ico")
 try {
-    Save-ScaledPng $logo 50 (Join-Path $assets "StoreLogo.png")
-    Save-ScaledPng $logo 44 (Join-Path $assets "Square44x44Logo.png")
-    Save-ScaledPng $logo 150 (Join-Path $assets "Square150x150Logo.png")
+    Save-ScaledPng (Get-FrameFor $frames 50) 50 (Join-Path $assets "StoreLogo.png")
+    Save-ScaledPng (Get-FrameFor $frames 44) 44 (Join-Path $assets "Square44x44Logo.png")
+    Save-ScaledPng (Get-FrameFor $frames 150) 150 (Join-Path $assets "Square150x150Logo.png")
+    foreach ($scale in 125, 150, 200, 400) {
+        $size = [int][Math]::Round(44 * $scale / 100)
+        Save-ScaledPng (Get-FrameFor $frames $size) $size (Join-Path $assets "Square44x44Logo.scale-$scale.png")
+    }
+    # Without the unplated sizes the taskbar and Start show the logo on a square in the Windows accent color.
+    foreach ($size in 16, 20, 24, 30, 32, 36, 40, 48, 60, 64, 72, 80, 96, 256) {
+        foreach ($form in "altform-unplated", "altform-lightunplated") {
+            Save-ScaledPng (Get-FrameFor $frames $size) $size (Join-Path $assets "Square44x44Logo.targetsize-${size}_$form.png")
+        }
+    }
 }
-finally { $logo.Dispose() }
+finally { $frames.Values | ForEach-Object { $_.Dispose() } }
+
+# Windows finds the sized and unplated logos only through resources.pri.
+$priConfig = Join-Path $releaseRoot "priconfig.xml"
+Invoke-Checked "makepri createconfig" { & $makePri createconfig /cf $priConfig /dq en-US /pv 10.0.0 /o | Out-Null }
+Invoke-Checked "makepri new" {
+    & $makePri new /pr $layout /cf $priConfig /mn (Join-Path $layout "AppxManifest.xml") /of (Join-Path $layout "resources.pri") /o | Out-Null
+}
 
 Invoke-Checked "makeappx pack" { & $makeAppx pack /o /d $layout /p $msix /nv | Out-Null }
 Invoke-Checked "signtool sign" { & $signTool sign /q /fd SHA256 /f $CertificatePfx /p $CertificatePassword $msix }
