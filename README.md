@@ -56,8 +56,7 @@ Norsk bokmål.
 The app follows the Windows display language; change it in **Settings → Language**. The choice also applies to the
 installer and to the Explorer menu. Arabic, Persian and Urdu use a right-to-left layout.
 
-The English, Russian and Norwegian texts were written by hand; the other languages were translated with AI assistance.
-Corrections from native speakers are very welcome — the texts are plain JSON files in
+Found a wrong or clumsy translation? Please open an issue or a pull request — the texts are plain JSON files in
 [`src/FolderManaging.Core/Localization/Strings`](src/FolderManaging.Core/Localization/Strings) (`en.json` is the source).
 
 ## Your data
