@@ -57,6 +57,15 @@ public sealed class AppStateDocument
     /// </summary>
     public bool ColorSortTipShown { get; set; }
 
+    /// <summary>"Check for updates automatically" (since 2.2.0). Default: on.</summary>
+    public bool CheckForUpdates { get; set; } = true;
+
+    /// <summary>Last automatic or manual update check, UTC. Not exported.</summary>
+    public DateTime? UpdateLastCheckUtc { get; set; }
+
+    /// <summary>Version the user chose to skip ("Skip this version"); a newer one is offered again. Not exported.</summary>
+    public string? UpdateSkippedVersion { get; set; }
+
     public ContextMenuLayout GetContextMenuLayout() => ContextMenuLayout.Normalize(ContextMenu);
 
     /// <summary>Moves <paramref name="colorToken"/> to the front of <see cref="RecentColors"/>.</summary>
@@ -78,5 +87,6 @@ public sealed class AppStateDocument
         Theme = AppThemePreference.System;
         Language = null;
         ContextMenu = null;
+        CheckForUpdates = true;
     }
 }

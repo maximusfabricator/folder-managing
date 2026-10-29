@@ -17,6 +17,7 @@ using FolderManaging.Core.Diagnostics;
 using FolderManaging.Core.Interop;
 using FolderManaging.Core.Localization;
 using FolderManaging.Core.Models;
+using FolderManaging.Core.Updates;
 using Application = System.Windows.Application;
 using Button = System.Windows.Controls.Button;
 using MessageBoxButton = System.Windows.MessageBoxButton;
@@ -46,6 +47,29 @@ internal static class UiTour
 
     internal static bool TryStart(string[] args)
     {
+        if (ValueAfter(args, "--update-rehearsal") is { } rehearsalDir)
+        {
+            _offScreen = true;
+            var host = Application.Current;
+            host.ShutdownMode = ShutdownMode.OnExplicitShutdown;
+            host.Dispatcher.BeginInvoke(async () =>
+            {
+                try
+                {
+                    await RehearseUpdateAsync(rehearsalDir);
+                }
+                catch (Exception ex)
+                {
+                    File.AppendAllText(Path.Combine(rehearsalDir, "rehearsal.txt"), "FAILED: " + ex + Environment.NewLine);
+                }
+                finally
+                {
+                    host.Shutdown();
+                }
+            });
+            return true;
+        }
+
         var dir = ValueAfter(args, "--ui-tour");
         if (dir is null)
             return false;
@@ -84,6 +108,8 @@ internal static class UiTour
         Directory.CreateDirectory(dir);
         var theme = AppThemeService.TourTheme?.ToString().ToLowerInvariant() ?? "system";
         var prefix = Path.Combine(dir, $"{UiText.Current.Code}-{theme}-");
+        var updates = UpdateService.ForTour();
+        UpdateService.BeforeShowForTour = KeepOffScreen;
 
         var main = new MainWindow { Topmost = true, ShowActivated = false, WindowStartupLocation = WindowStartupLocation.CenterScreen };
         KeepOffScreen(main);
@@ -187,7 +213,104 @@ internal static class UiTour
             viewer.Close();
         }
 
+        var sample = SampleManifest();
+        var update = updates.OpenWindowForTour();
+        await Settle(update, 900);
+        update.ShowAvailable(sample);
+        await Settle(update, 700);
+        Save(update, prefix + "update-available");
+        update.ShowDownloadingForTour(sample, sample.SetupSize * 2 / 5);
+        await Settle(update, 600);
+        Save(update, prefix + "update-downloading");
+        update.ShowStartingForTour(sample);
+        await Settle(update, 600);
+        Save(update, prefix + "update-starting");
+        update.ShowError(UiText.Get("UpdateCheckFailedTitle"), UiText.Get("UpdateErrorNetwork"),
+            "github.com did not answer in time.", () => Task.CompletedTask);
+        await Settle(update, 600);
+        Save(update, prefix + "update-error");
+        update.ShowError(UiText.Get("UpdateFailedTitle"), UiText.Get("UpdateCancelled"), null, () => Task.CompletedTask);
+        await Settle(update, 600);
+        Save(update, prefix + "update-cancelled");
+        update.ShowError(UiText.Get("UpdateFailedTitle"), UiText.Get("UpdateErrorDownload"), "The downloaded setup does not match update.json (size or SHA-256).", () => Task.CompletedTask);
+        await Settle(update, 600);
+        Save(update, prefix + "update-bad-download");
+        update.ShowChecking();
+        await Settle(update, 600);
+        Save(update, prefix + "update-checking");
+        update.ShowUpToDate();
+        await Settle(update, 600);
+        Save(update, prefix + "update-uptodate");
+        update.Close();
+
         main.Close();
+    }
+
+    /// <summary>A release as the window would get it; the notes are long enough to scroll.</summary>
+    static UpdateManifest SampleManifest()
+    {
+        var notes = Environment.GetEnvironmentVariable("FM_TOUR_NOTES") is { Length: > 0 } file && File.Exists(file)
+            ? File.ReadAllText(file)
+            : "## 2.2.0\n\n### New\n\n- **Update notifications.** The app tells you when a new version is out.\n- Settings → Check for updates automatically.";
+        return new UpdateManifest(new UpdateVersion(2, 2, 0), "v2.2.0", "FolderManaging-Setup-2.2.0.exe", 136_000_000,
+            new string('0', 64), UpdateEndpoint.ReleasesPageUrl + "/tag/v2.2.0", DateTimeOffset.UtcNow, notes);
+    }
+
+    /// <summary>
+    /// <c>--update-rehearsal DIR</c>: the real in-app path against the server in <c>FM_UPDATE_BASE_URL</c> — check,
+    /// signature, window, download, size and SHA-256 — stopping before the setup would start (needs
+    /// <c>FM_UPDATE_DRY_RUN=1</c>). Windows stay off screen; DIR gets PNGs and rehearsal.txt.
+    /// </summary>
+    static async Task RehearseUpdateAsync(string dir)
+    {
+        Directory.CreateDirectory(dir);
+        var report = Path.Combine(dir, "rehearsal.txt");
+        void Log(string line) => File.AppendAllText(report, line + Environment.NewLine);
+        if (Environment.GetEnvironmentVariable("FM_UPDATE_DRY_RUN") != "1")
+        {
+            Log("FAILED: set FM_UPDATE_DRY_RUN=1");
+            return;
+        }
+
+        var service = UpdateService.ForTour();
+        UpdateService.BeforeShowForTour = KeepOffScreen;
+        Log($"current (pretended): {UpdateVersion.Current}; source: {UpdateEndpoint.Default.ManifestUri}");
+        var manifest = await service.CheckForRehearsalAsync();
+        if (manifest is null)
+        {
+            Log("FAILED: no newer version offered");
+            return;
+        }
+
+        Log($"signature: valid; offered: {manifest.Version}, {manifest.SetupFile}, {manifest.SetupSize} bytes, sha256 {manifest.SetupSha256}");
+        var window = Application.Current.Windows.OfType<UpdateWindow>().Single();
+        await Settle(window, 900);
+        Save(window, Path.Combine(dir, $"{UiText.Current.Code}-rehearsal-available"));
+
+        var install = window.PressUpdateForRehearsal();
+        await Task.Delay(150);
+        Save(window, Path.Combine(dir, $"{UiText.Current.Code}-rehearsal-downloading"));
+        await install;
+        await Settle(window, 600);
+        Save(window, Path.Combine(dir, $"{UiText.Current.Code}-rehearsal-dry-run"));
+
+        var path = UpdateService.DryRunSetup;
+        if (path is null || !File.Exists(path))
+        {
+            Log($"FAILED: no verified setup (window state {window.State})");
+            return;
+        }
+
+        await using (var stream = File.OpenRead(path))
+        {
+            var hash = Convert.ToHexStringLower(await System.Security.Cryptography.SHA256.HashDataAsync(stream));
+            Log($"downloaded: {path}, {stream.Length} bytes, sha256 {hash}");
+            Log(hash == manifest.SetupSha256 && stream.Length == manifest.SetupSize
+                ? "RESULT: OK — verified setup ready; the installer was not started (dry run)"
+                : "FAILED: downloaded file differs from the manifest");
+        }
+
+        window.Close();
     }
 
     static async Task Settle(Window window, int milliseconds)

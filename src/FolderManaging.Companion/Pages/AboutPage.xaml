@@ -22,7 +22,22 @@
             <TextBlock Style="{StaticResource FmTextSecondary}" Margin="0,12,0,0" Opacity="0.65" TextWrapping="Wrap"
                        Text="{loc:Loc SetupBlurb}" />
 
-            <ui:CardControl Margin="0,20,0,0" Padding="16,14">
+            <ui:CardControl x:Name="UpdatesCard" Margin="0,20,0,0" Padding="16,14">
+                <ui:CardControl.Header>
+                    <StackPanel>
+                        <TextBlock Style="{StaticResource FmText}" FontSize="14" FontWeight="SemiBold" TextWrapping="Wrap"
+                                   Text="{loc:Loc AboutUpdates}" />
+                        <TextBlock x:Name="UpdateStatusText" Style="{StaticResource FmTextSecondary}" Margin="0,4,0,0" FontSize="12" Opacity="0.85" TextWrapping="Wrap" />
+                    </StackPanel>
+                </ui:CardControl.Header>
+                <ui:Button x:Name="CheckUpdatesButton"
+                           Appearance="Secondary"
+                           Icon="{ui:SymbolIcon Symbol=ArrowSync24}"
+                           Content="{loc:Loc UpdateCheckNow}"
+                           Click="OnCheckUpdatesClick" />
+            </ui:CardControl>
+
+            <ui:CardControl Margin="0,12,0,0" Padding="16,14">
                 <ui:CardControl.Header>
                     <StackPanel>
                         <TextBlock x:Name="AuthorText" Style="{StaticResource FmText}" FontSize="14" FontWeight="SemiBold" TextWrapping="Wrap" />

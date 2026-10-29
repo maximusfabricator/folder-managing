@@ -9,6 +9,7 @@ using FolderManaging.Core.Localization;
 using FolderManaging.Core.QuickAccess;
 using FolderManaging.Core.ShellProperties;
 using FolderManaging.Core.Storage;
+using FolderManaging.Core.Updates;
 
 namespace FolderManaging.Cli;
 
@@ -22,6 +23,28 @@ internal static class Program
             string.Equals(args[0].Trim(), "--elevated-worker", StringComparison.OrdinalIgnoreCase))
         {
             return ElevatedCliInvoker.RunWorkerServer();
+        }
+
+        if (args.Length > 0 &&
+            string.Equals(args[0].Trim(), "update", StringComparison.OrdinalIgnoreCase))
+        {
+            if (!UpdateSchedule.IsSupported)
+            {
+                Console.Error.WriteLine("This edition is updated by the store it came from.");
+                return 1;
+            }
+
+            if (!args.Skip(1).Any(a => string.Equals(a.Trim(), "--check", StringComparison.OrdinalIgnoreCase)))
+            {
+                Console.Error.WriteLine("Usage: foldermanaging-cli update --check [--json]");
+                return 64;
+            }
+
+            var json = args.Skip(1).Any(a => string.Equals(a.Trim(), "--json", StringComparison.OrdinalIgnoreCase));
+            var (exit, text) = await UpdateCheckReport.RunAsync(json);
+            Console.OutputEncoding = System.Text.Encoding.UTF8;
+            Console.WriteLine(text);
+            return exit;
         }
 
         if (args.Length > 0 &&

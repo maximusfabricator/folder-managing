@@ -79,20 +79,49 @@ public static class PropertySchemaRegistration
             ClickTrace.Step($"PSUnregisterPropertySchema (refresh) hr=0x{unreg:X8}");
         }
 
-        var xml = File.ReadAllText(sourcePropdescPath);
-        // One column title for the whole PC, in the UI language at registration (Settings, otherwise Windows).
-        // The elevated worker refreshes it when that language changes.
-        var colorLabel = System.Security.SecurityElement.Escape(UiText.Get("ColumnName"));
-        var tagLabel = System.Security.SecurityElement.Escape(UiText.Get("TagColumnName"));
-        xml = xml.Replace("__FM_COLUMN_LABEL__", colorLabel, StringComparison.Ordinal);
-        xml = xml.Replace("__FM_TAG_COLUMN_LABEL__", tagLabel, StringComparison.Ordinal);
+        var xml = ExpectedSchema(sourcePropdescPath);
         File.WriteAllText(dest, xml, new UTF8Encoding(encoderShouldEmitUTF8Identifier: true));
-        ClickTrace.Step($"propdesc written -> '{dest}' color='{colorLabel}' tags='{tagLabel}'");
+        ClickTrace.Step($"propdesc written -> '{dest}'");
 
         var hr = PSRegisterPropertySchema(dest);
         ClickTrace.Step($"PSRegisterPropertySchema hr=0x{hr:X8} path='{dest}'");
         if (hr < 0)
             Marshal.ThrowExceptionForHR(hr);
+    }
+
+    /// <summary>
+    /// One column title for the whole PC, in the UI language at registration (Settings, otherwise Windows).
+    /// The elevated worker refreshes it when that language changes.
+    /// </summary>
+    static string ExpectedSchema(string sourcePropdescPath)
+    {
+        var colorLabel = System.Security.SecurityElement.Escape(UiText.Get("ColumnName"));
+        var tagLabel = System.Security.SecurityElement.Escape(UiText.Get("TagColumnName"));
+        return File.ReadAllText(sourcePropdescPath)
+            .Replace("__FM_COLUMN_LABEL__", colorLabel, StringComparison.Ordinal)
+            .Replace("__FM_TAG_COLUMN_LABEL__", tagLabel, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// True when <see cref="Register"/> with <paramref name="sourcePropdescPath"/> would change nothing in HKLM or
+    /// %ProgramData%: same schema text and the three DesktopIniPropertyMap entries. Needs no administrator rights.
+    /// </summary>
+    public static bool IsCurrent(string sourcePropdescPath)
+    {
+        if (!File.Exists(sourcePropdescPath) || !File.Exists(ProgramDataSchemaPath))
+            return false;
+        if (!string.Equals(File.ReadAllText(ProgramDataSchemaPath), ExpectedSchema(sourcePropdescPath), StringComparison.Ordinal))
+            return false;
+        return HasMap(ColorHueMapKeyPath, FolderColorHueProperty.IniHueKey) &&
+               HasMap(RatingMapKeyPath, FolderColorHueProperty.IniHueKey) &&
+               HasMap(TagMapKeyPath, FolderTagProperty.IniKey);
+
+        static bool HasMap(string keyPath, string iniKey)
+        {
+            using var key = Registry.LocalMachine.OpenSubKey(keyPath, writable: false);
+            return key?.GetValue("Section") is string section && section == FolderColorHueProperty.IniSectionName &&
+                   key.GetValue("Key") is string k && k == iniKey;
+        }
     }
 
     /// <summary>

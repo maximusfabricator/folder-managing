@@ -336,6 +336,9 @@ internal static class CliOptionsParser
             (Admin: maps ColorHue → Rating for Sort. Comments/InfoTip sort needs no register.)
           FolderManaging.Cli unregister-property-schema
 
+        Check for a newer version (downloads and installs nothing; exit 0 up to date, 10 newer, 2 offline, 3 not trusted):
+          foldermanaging-cli update --check [--json]
+
         Examples:
           FolderManaging.Cli --action color --value mint --path "D:\Work\Demo"
           FolderManaging.Cli --action reset --path "D:\Work\Demo"

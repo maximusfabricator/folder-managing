@@ -26,6 +26,8 @@ Created by **maximusfabricator** · Free software under the [GNU General Public 
 - **Check and repair.** Settings → *Check and repair folders* explains why a colored folder looks plain and fixes it.
 - **Export and import** colors, tags, the menu and the folder list, for a backup or another PC.
 - **Tray icon.** Double-click it to color any folder quickly. Optional start with Windows.
+- **Update notifications.** The app tells you when a new version is out and installs it with one click (see
+  [Updates](#updates)).
 - **System folders.** Folders such as *Program Files* need administrator rights; confirm the Windows prompt once and
   the app can change them without asking again while the setting is on.
 - **24 languages**, light and dark theme in the Windows 11 style.
@@ -43,7 +45,8 @@ background.
 
 Requirements: Windows 11, x64. On Windows 10 the app installs, but the menu item may not appear.
 
-**Update:** run the newer installer; settings, colors and tags are kept.
+**Update:** from version 2.2.0 on, the app offers new versions by itself (see [Updates](#updates)). You can also
+run the newer installer at any time; settings, colors and tags are kept.
 **Uninstall:** Settings → Apps → Installed apps → Folder Managing → Uninstall. You choose whether colored folders get
 their default icon back and whether your settings are deleted.
 
@@ -67,8 +70,40 @@ Found a wrong or clumsy translation? Please open an issue or a pull request — 
 | Folder icons (readable by every account on the PC) | `%ProgramData%\FolderManaging\Icons` |
 | Menu icons; folder icons of version 2.0 | `%LOCALAPPDATA%\FolderManaging\Icons` |
 | Error log (*Error log…* in the app) | `%LOCALAPPDATA%\FolderManaging\errors.log` |
+| Downloaded updates (deleted after the update) | `%LOCALAPPDATA%\FolderManaging\Updates` |
 
-Nothing is sent anywhere; the app has no network access of its own.
+Your settings, colors, tags and folder list never leave your PC. The only network access is the update check
+described below, and it can be turned off.
+
+## Updates
+
+**Version 2.1.1 or older:** these versions cannot update themselves. Download and run
+`FolderManaging-Setup-2.2.0.exe` (or newer) from the [Releases](https://github.com/maximusfabricator/folder-managing/releases)
+page once; after that the app keeps itself up to date.
+
+How it works:
+
+- About a minute and a half after the tray app starts, and then once a day, it downloads two small files from the
+  latest GitHub release of this project: `update.json` (version number, setup size and checksum, release notes) and
+  its signature `update.json.sig`. The app only believes `update.json` if the signature matches the Folder Managing
+  key built into the app.
+- If a newer version exists, a small window shows what is new, with **Update**, **Later** and **Skip this version**.
+  The window does not take the focus and waits while you are in a full-screen app, a game or a presentation; the tray
+  menu also shows the update. *Later* asks again at the next daily check; *Skip this version* stays quiet until an even
+  newer version is out.
+- **Update** downloads the setup from the same GitHub release, checks that its size and SHA-256 checksum match the
+  signed `update.json`, closes the app and installs. Windows may ask for administrator rights; if you answer *No*,
+  nothing changes. The app opens again when the update is done, with your settings, colors and tags.
+- The app never installs an older version.
+
+What is sent: only the download requests themselves, to `github.com` (and GitHub's download servers
+`objects.githubusercontent.com` and `release-assets.githubusercontent.com`). No personal data, folder names or
+settings are sent. Like every website, GitHub sees your IP address, and the request names the app and its version
+(`User-Agent: FolderManaging/2.2.0`). The app uses the Windows proxy settings.
+
+To turn the checks off: **Settings → Check for updates automatically**. *Check for updates* (in Settings, on the
+About page and in the tray menu) still works when you want it. Command line:
+`foldermanaging-cli update --check` prints what the check finds without downloading anything (`--json` for scripts).
 
 ## FAQ
 

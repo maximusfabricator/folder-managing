@@ -3,10 +3,12 @@
   <!--
     FmEdition=Dev  (default): verbose diagnostics, dev-only CLI commands.
     FmEdition=User (release / installer): error-only log, no dev tooling. Set by scripts\release\Build-UserRelease.ps1.
+    FmUpdater=false: no update checks (for an edition that a store updates, such as the Microsoft Store).
   -->
   <PropertyGroup>
     <FmEdition Condition="'$(FmEdition)' == ''">Dev</FmEdition>
-    <Version>2.1.1</Version>
+    <FmUpdater Condition="'$(FmUpdater)' == ''">true</FmUpdater>
+    <Version>2.2.0</Version>
     <Product>Folder Managing</Product>
     <Company>maximusfabricator</Company>
     <Authors>maximusfabricator</Authors>
@@ -17,6 +19,10 @@
 
   <PropertyGroup Condition="'$(FmEdition)' == 'Dev'">
     <DefineConstants>$(DefineConstants);FM_DEV</DefineConstants>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="'$(FmUpdater)' == 'false'">
+    <DefineConstants>$(DefineConstants);FM_NO_UPDATER</DefineConstants>
   </PropertyGroup>
 
   <!-- User binaries must not name the machine they were built on. -->

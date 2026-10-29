@@ -17,7 +17,7 @@
 
   <Identity Name="FolderManaging"
             Publisher="CN=Folder Managing"
-            Version="2.1.1.0"
+            Version="2.2.0.0"
             ProcessorArchitecture="x64" />
 
   <Properties>
@@ -47,7 +47,8 @@
     <Application Id="FolderManagingShell"
                  Executable="FolderManaging.Cli.exe"
                  uap10:TrustLevel="mediumIL"
-                 uap10:RuntimeBehavior="win32App">
+                 uap10:RuntimeBehavior="win32App"
+                 desktop4:SupportsMultipleInstances="true">
       <uap:VisualElements
         DisplayName="Folder Managing Shell"
         Description="Folder Managing Explorer integration"
@@ -56,6 +57,12 @@
         Square44x44Logo="Assets\Square44x44Logo.png"
         AppListEntry="none" />
       <Extensions>
+        <!-- Console commands for support, such as the update check (see README, Updates). -->
+        <uap5:Extension Category="windows.appExecutionAlias">
+          <uap5:AppExecutionAlias desktop4:Subsystem="console">
+            <uap5:ExecutionAlias Alias="foldermanaging-cli.exe" />
+          </uap5:AppExecutionAlias>
+        </uap5:Extension>
         <com:Extension Category="windows.comServer">
           <com:ComServer>
             <com:SurrogateServer DisplayName="Folder Manager Shell">

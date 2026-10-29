@@ -40,12 +40,60 @@ public partial class SettingsPage : System.Windows.Controls.UserControl
                 AutostartToggle.IsChecked = AutostartService.IsEnabled();
             }
 
+            UpdateToggle.IsChecked = CompanionState.Document.CheckForUpdates;
+            if (UpdateService.Current is { } updates)
+            {
+                updates.StatusChanged -= OnUpdateStatusChanged;
+                updates.StatusChanged += OnUpdateStatusChanged;
+                RefreshUpdateStatus();
+            }
+            else
+            {
+                UpdatesCard.Visibility = Visibility.Collapsed;
+            }
+
             ClickTrace.Step($"settings loaded AutoElevate={AutoElevateToggle.IsChecked} theme={CompanionState.Document.Theme}");
         }
         finally
         {
             _suppressToggleEvents = false;
         }
+    }
+
+    void OnUnloaded(object sender, RoutedEventArgs e)
+    {
+        if (UpdateService.Current is { } updates)
+            updates.StatusChanged -= OnUpdateStatusChanged;
+    }
+
+    void OnUpdateStatusChanged(object? sender, EventArgs e) => RefreshUpdateStatus();
+
+    void RefreshUpdateStatus()
+    {
+        if (UpdateService.Current is not { } updates)
+            return;
+        UpdateStatusText.Text = updates.StatusLine();
+        CheckUpdatesButton.IsEnabled = !updates.IsChecking;
+    }
+
+    void OnUpdateToggleChanged(object sender, RoutedEventArgs e)
+    {
+        if (_suppressToggleEvents)
+            return;
+
+        var enabled = UpdateToggle.IsChecked == true;
+        using var scope = ClickTrace.Begin("companion", "settings-check-updates", detail: enabled ? "on" : "off");
+        CompanionState.Document.CheckForUpdates = enabled;
+        CompanionState.Save();
+        UpdateService.Current?.SettingsChanged();
+        ClickTrace.Ok();
+        scope.MarkFinished();
+    }
+
+    async void OnCheckUpdatesClick(object sender, RoutedEventArgs e)
+    {
+        if (UpdateService.Current is { } updates)
+            await updates.CheckNowAsync();
     }
 
     void OnThemeChanged(object sender, SelectionChangedEventArgs e)
@@ -476,6 +524,7 @@ public partial class SettingsPage : System.Windows.Controls.UserControl
         try
         {
             AutoElevateToggle.IsChecked = CompanionState.Document.AutoElevateProtectedFolders;
+            UpdateToggle.IsChecked = CompanionState.Document.CheckForUpdates;
             SelectThemeCombo(CompanionState.Document.Theme);
         }
         finally
@@ -483,6 +532,7 @@ public partial class SettingsPage : System.Windows.Controls.UserControl
             _suppressToggleEvents = false;
         }
 
+        UpdateService.Current?.SettingsChanged();
         ApplySavedLanguage();
     }
 
@@ -508,6 +558,7 @@ public partial class SettingsPage : System.Windows.Controls.UserControl
         try
         {
             AutoElevateToggle.IsChecked = CompanionState.Document.AutoElevateProtectedFolders;
+            UpdateToggle.IsChecked = CompanionState.Document.CheckForUpdates;
             SelectThemeCombo(CompanionState.Document.Theme);
             FillLanguageCombo();
         }
@@ -516,6 +567,7 @@ public partial class SettingsPage : System.Windows.Controls.UserControl
             _suppressToggleEvents = false;
         }
 
+        UpdateService.Current?.SettingsChanged();
         RefreshWorkerStatus();
 
         FmMessageBox.Show(

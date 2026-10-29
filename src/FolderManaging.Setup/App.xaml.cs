@@ -3,6 +3,7 @@
 
 using System.Windows;
 using FolderManaging.Core.Localization;
+using FolderManaging.Core.Updates;
 using Microsoft.Win32;
 using Wpf.Ui.Appearance;
 using Wpf.Ui.Controls;
@@ -31,6 +32,19 @@ public partial class App : Application
 #endif
 
         var uninstall = !Payload.IsEmbedded || HasSwitch(e.Args, "--uninstall");
+        if (!uninstall && HasSwitch(e.Args, UpdateHandoff.UpdateSwitch))
+        {
+            var statusPath = ValueAfter(e.Args, UpdateHandoff.StatusSwitch);
+            UpdateHandoff.Write(statusPath, UpdateStage.Started);
+            ApplicationThemeManager.Apply(ReadSystemTheme(), WindowBackdropType.Mica, updateAccent: true);
+            ShutdownMode = ShutdownMode.OnExplicitShutdown;
+            var updateWindow = new SetupWindow(SetupMode.Update, statusPath);
+            MainWindow = updateWindow;
+            updateWindow.Closed += (_, _) => Shutdown(updateWindow.ExitCode);
+            updateWindow.Show();
+            return;
+        }
+
         if (HasSwitch(e.Args, "--quiet"))
         {
             Shutdown(RunQuiet(uninstall));
@@ -48,7 +62,16 @@ public partial class App : Application
         args.Any(a => string.Equals(a, name, StringComparison.OrdinalIgnoreCase) ||
                       string.Equals(a, "/" + name.TrimStart('-'), StringComparison.OrdinalIgnoreCase));
 
-    /// <summary><c>--quiet</c>: no window, default options, result in the setup log and exit code.</summary>
+    static string? ValueAfter(string[] args, string name)
+    {
+        var i = Array.FindIndex(args, a => string.Equals(a, name, StringComparison.OrdinalIgnoreCase));
+        return i >= 0 && i + 1 < args.Length && args[i + 1].Length > 0 ? args[i + 1] : null;
+    }
+
+    /// <summary>
+    /// <c>--quiet</c>: no window, default options (autostart on, no desktop shortcut), result in the setup log and
+    /// exit code. Updates use <c>--update</c>, which keeps the user's choices.
+    /// </summary>
     static int RunQuiet(bool uninstall)
     {
         var progress = new LogProgress();

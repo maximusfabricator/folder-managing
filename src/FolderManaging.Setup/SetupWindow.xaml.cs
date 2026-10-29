@@ -5,6 +5,7 @@ using System.Windows;
 using System.Windows.Markup;
 using FolderManaging.Core;
 using FolderManaging.Core.Localization;
+using FolderManaging.Core.Updates;
 using Wpf.Ui.Controls;
 
 namespace FolderManaging.Setup;
@@ -13,22 +14,39 @@ internal enum SetupMode
 {
     Install,
     Uninstall,
+
+    /// <summary><c>--update</c>: no choices, only progress; started by the app.</summary>
+    Update,
 }
 
 public partial class SetupWindow : FluentWindow
 {
     readonly SetupMode _mode;
+    readonly string? _statusPath;
     bool _busy;
     bool _finished;
 
-    internal SetupWindow(SetupMode mode)
+    internal SetupWindow(SetupMode mode, string? statusPath = null)
     {
         InitializeComponent();
         FlowDirection = UiText.IsRightToLeft ? FlowDirection.RightToLeft : FlowDirection.LeftToRight;
         Language = XmlLanguage.GetLanguage(UiText.Current.Code);
         _mode = mode;
+        _statusPath = statusPath;
         SubtitleText.Text = UiText.Format("VersionLine", ProductInfo.Version);
         CopyrightText.Text = AppInfo.Copyright;
+
+        if (mode == SetupMode.Update)
+        {
+            Title = UiText.Get("SetupUpdateTitle");
+            PageArea.MinHeight = 110;
+            ShowPage(ProgressPage);
+            ProgressText.Text = UiText.Get("UnpackFiles");
+            Footer.Visibility = Visibility.Collapsed;
+            WindowTitleBar.ShowClose = false;
+            ContentRendered += async (_, _) => await RunUpdateAsync();
+            return;
+        }
 
         if (mode == SetupMode.Uninstall)
         {
@@ -60,11 +78,64 @@ public partial class SetupWindow : FluentWindow
         }
     }
 
+    /// <summary>Exit code of the setup in <see cref="SetupMode.Update"/>: 0 done, 2 cancelled, 1 failed.</summary>
+    internal int ExitCode { get; private set; }
+
     void ShowPage(UIElement page)
     {
         foreach (var p in new UIElement[] { InstallPage, UninstallPage, ProgressPage, ResultPage })
             p.Visibility = p == page ? Visibility.Visible : Visibility.Collapsed;
     }
+
+    /// <summary>
+    /// Errors before the app was closed are shown by the app (it watches the status file), so the setup just ends.
+    /// After that the app is gone: the setup shows the error itself and starts the app again.
+    /// </summary>
+    async Task RunUpdateAsync()
+    {
+        _busy = true;
+        var progress = new Progress<string>(text => ProgressText.Text = text);
+        var options = InstallOptions.ForUpdate(_statusPath);
+        try
+        {
+            await Task.Run(() => Installer.Run(options, progress));
+            UpdateHandoff.Write(_statusPath, UpdateStage.Done);
+            _busy = false;
+            Close();
+        }
+        catch (OperationCanceledException ex)
+        {
+            SetupLog.Write($"update cancelled: {ex.Message}");
+            UpdateHandoff.Write(_statusPath, UpdateStage.Cancelled);
+            ExitCode = 2;
+            if (_statusPath is not null && !AppWasClosed())
+            {
+                _busy = false;
+                Close();
+                return;
+            }
+
+            ShowResult(success: false, UiText.Get("NotFinished"), UiText.Get("UpdateCancelled"), []);
+        }
+        catch (Exception ex)
+        {
+            SetupLog.Write($"update FAILED: {ex}");
+            UpdateHandoff.Write(_statusPath, UpdateStage.Failed, ex.Message);
+            ExitCode = 1;
+            if (_statusPath is not null && !AppWasClosed())
+            {
+                _busy = false;
+                Close();
+                return;
+            }
+
+            ShowResult(success: false, UiText.Get("Error"), ex.Message, [UiText.Format("DetailsLog", SetupLog.FilePath)]);
+            Installer.TryRestartApp();
+        }
+    }
+
+    bool AppWasClosed() =>
+        _statusPath is not null && UpdateHandoff.ReadLast(_statusPath) is { Stage: UpdateStage.Installing };
 
     async void OnPrimaryClick(object sender, RoutedEventArgs e)
     {
@@ -137,6 +208,7 @@ public partial class SetupWindow : FluentWindow
         }
 
         ShowPage(ResultPage);
+        Footer.Visibility = Visibility.Visible;
         PrimaryButton.Content = UiText.Get("Close");
         PrimaryButton.Appearance = ControlAppearance.Primary;
         PrimaryButton.Visibility = Visibility.Visible;
@@ -177,6 +249,19 @@ public partial class SetupWindow : FluentWindow
 
     internal void ShowResultForTour(bool success, string title, string text, IReadOnlyList<string> details) =>
         ShowResult(success, title, text, details);
+
+    /// <summary>Update mode for the tour: the same window without starting the install.</summary>
+    internal static SetupWindow ForUpdateTour()
+    {
+        var window = new SetupWindow(SetupMode.Install);
+        window.Title = UiText.Get("SetupUpdateTitle");
+        window.PageArea.MinHeight = 110;
+        window.ShowPage(window.ProgressPage);
+        window.ProgressText.Text = UiText.Get("InstallingApp");
+        window.Footer.Visibility = Visibility.Collapsed;
+        window.WindowTitleBar.ShowClose = false;
+        return window;
+    }
 #endif
 
     void OnSecondaryClick(object sender, RoutedEventArgs e) => Close();

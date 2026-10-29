@@ -37,10 +37,39 @@ internal sealed class TrayIconService : IDisposable
         };
         menu.Items.Add(UiText.Get("TrayPaint"), null, (_, _) => OpenQuickColor());
         menu.Items.Add(new ToolStripSeparator());
+        if (_updateVersion is { } version)
+        {
+            var update = menu.Items.Add(UiText.Format("TrayUpdateAvailable", version), null, (_, _) => UpdateService.Current?.ShowAvailable());
+            update.Font = new Font(update.Font, System.Drawing.FontStyle.Bold);
+        }
+
+        if (UpdateService.Current is not null)
+            menu.Items.Add(UiText.Get("UpdateCheckNow"), null, async (_, _) => await UpdateService.Current.CheckNowAsync());
         menu.Items.Add(UiText.Get("TraySettings"), null, (_, _) => ShowMainWindow());
         menu.Items.Add(UiText.Get("TrayExit"), null, (_, _) => ExitApp());
         return menu;
     }
+
+    FolderManaging.Core.Updates.UpdateVersion? _updateVersion;
+
+    /// <summary>Shows or removes the "Update to version …" item.</summary>
+    internal void SetUpdateAvailable(FolderManaging.Core.Updates.UpdateVersion? version)
+    {
+        if (_updateVersion == version && _icon.ContextMenuStrip is not null)
+            return;
+        _updateVersion = version;
+        RebuildMenu();
+    }
+
+    void RebuildMenu()
+    {
+        var oldMenu = _icon.ContextMenuStrip;
+        _icon.ContextMenuStrip = BuildMenu();
+        oldMenu?.Dispose();
+    }
+
+    internal void ShowBalloon(string text) =>
+        _icon.ShowBalloonTip(6000, "Folder Managing", text, ToolTipIcon.Info);
 
     /// <summary>
     /// After a language change: XAML text is resolved when a window is built, so the main window is rebuilt in place
@@ -48,9 +77,7 @@ internal sealed class TrayIconService : IDisposable
     /// </summary>
     internal void ReloadUi(Type page)
     {
-        var oldMenu = _icon.ContextMenuStrip;
-        _icon.ContextMenuStrip = BuildMenu();
-        oldMenu?.Dispose();
+        RebuildMenu();
 
         var old = _mainWindow;
         var fresh = new MainWindow(page);
@@ -143,7 +170,7 @@ internal sealed class TrayIconService : IDisposable
         });
     }
 
-    void ExitApp()
+    internal void ExitApp()
     {
         _exitRequested = true;
         ClickTrace.Step("tray exit");

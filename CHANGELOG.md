@@ -1,5 +1,26 @@
 # Changelog
 
+## 2.2.0 — 2026-10-29
+
+### New
+
+- **Update notifications.** Once a day the app checks the GitHub releases of Folder Managing. When a new version is
+  out, a small window shows what is new, with *Update*, *Later* and *Skip this version*. It does not take the focus
+  and waits while you are in a full-screen app, a game or a presentation; the tray menu shows the update too.
+- **Update** downloads the setup, checks that it is the published one, closes the app, installs and opens it again.
+  No setup pages to click through; your settings, colors, tags, start with Windows and the desktop shortcut stay as
+  they were. Windows asks for administrator rights only when the update needs them.
+- **Settings → Check for updates automatically** turns the daily check off. *Check for updates* is in Settings, on the
+  About page and in the tray menu. The About page shows when the app last checked.
+- Only two small files are downloaded for a check; nothing about you or your folders is sent. See *Updates* in the
+  README.
+- Command line: `foldermanaging-cli update --check` shows what the check finds, `--json` for scripts.
+
+### Note
+
+- Version 2.1.1 and older cannot update themselves: install 2.2.0 once with its setup. Later versions arrive by
+  themselves.
+
 ## 2.1.1 — 2026-10-29
 
 ### Changed

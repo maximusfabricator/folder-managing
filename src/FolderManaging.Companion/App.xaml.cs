@@ -6,6 +6,7 @@ using FolderManaging.Core;
 using FolderManaging.Core.Diagnostics;
 using FolderManaging.Core.Localization;
 using FolderManaging.Core.QuickAccess;
+using FolderManaging.Core.Updates;
 using Wpf.Ui.Controls;
 using MessageBoxButton = System.Windows.MessageBoxButton;
 
@@ -31,6 +32,13 @@ public partial class App : System.Windows.Application
     protected override void OnStartup(StartupEventArgs e)
     {
         base.OnStartup(e);
+        if (e.Args.Length > 0 && string.Equals(e.Args[0], "update", StringComparison.OrdinalIgnoreCase))
+        {
+            _specialModeOnly = true;
+            Shutdown(RunConsoleUpdateCheck(e.Args));
+            return;
+        }
+
         DispatcherUnhandledException += OnDispatcherUnhandledException;
         AppBootstrapper.Initialize();
         AppThemeService.ApplyFromDocument();
@@ -101,8 +109,11 @@ public partial class App : System.Windows.Application
         });
 
         ShutdownMode = ShutdownMode.OnExplicitShutdown;
+        UpdateService.Start();
         _tray = new TrayIconService();
         Tray = _tray;
+        if (e.Args.Any(a => string.Equals(a.Trim(), UpdateHandoff.UpdatedSwitch, StringComparison.OrdinalIgnoreCase)))
+            _tray.ShowBalloon(UiText.Format("UpdatedBalloon", AppInfo.Version));
 
         if (trayOnly)
             return;
@@ -112,6 +123,32 @@ public partial class App : System.Windows.Application
         _tray.AttachMainWindow(main);
         main.Show();
     }
+
+    /// <summary>
+    /// <c>foldermanaging update --check [--json]</c>: the same report as <c>foldermanaging-cli update --check</c>,
+    /// printed into the console that started the app (the CLI alias also returns the exit code to the console).
+    /// </summary>
+    static int RunConsoleUpdateCheck(string[] args)
+    {
+        AttachConsole(AttachParentProcess);
+        if (!UpdateSchedule.IsSupported || !args.Skip(1).Any(a => string.Equals(a, "--check", StringComparison.OrdinalIgnoreCase)))
+        {
+            Console.Error.WriteLine("Usage: foldermanaging update --check [--json]");
+            return 64;
+        }
+
+        var json = args.Any(a => string.Equals(a, "--json", StringComparison.OrdinalIgnoreCase));
+        var (exit, text) = Task.Run(() => UpdateCheckReport.RunAsync(json)).GetAwaiter().GetResult();
+        Console.OutputEncoding = System.Text.Encoding.UTF8;
+        Console.WriteLine();
+        Console.WriteLine(text);
+        return exit;
+    }
+
+    const int AttachParentProcess = -1;
+
+    [System.Runtime.InteropServices.DllImport("kernel32.dll")]
+    static extern bool AttachConsole(int processId);
 
     /// <summary>Points entries at the folders' new paths and rewrites their <c>desktop.ini</c> in the background.</summary>
     internal static void RelocateMovedFolders()
@@ -152,6 +189,7 @@ public partial class App : System.Windows.Application
     protected override void OnExit(ExitEventArgs e)
     {
         _renameWatcher?.Dispose();
+        UpdateService.Current?.Dispose();
         _tray?.Dispose();
         Tray = null;
         CompanionState.Shutdown();

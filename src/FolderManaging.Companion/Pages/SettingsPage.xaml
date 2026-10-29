@@ -5,7 +5,8 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
              xmlns:loc="clr-namespace:FolderManaging.Companion.Localization"
-             Loaded="OnLoaded">
+             Loaded="OnLoaded"
+             Unloaded="OnUnloaded">
     <ScrollViewer VerticalScrollBarVisibility="Auto">
         <StackPanel Margin="36,24,36,24">
             <TextBlock Style="{StaticResource FmText}" FontSize="28" FontWeight="SemiBold" Text="{loc:Loc SettingsTitle}" />
@@ -61,6 +62,31 @@
                                  OnContent="{loc:Loc On}"
                                  Checked="OnAutostartChanged"
                                  Unchecked="OnAutostartChanged" />
+            </ui:CardControl>
+
+            <ui:CardControl x:Name="UpdatesCard" Margin="0,12,0,0" Padding="16,14">
+                <ui:CardControl.Header>
+                    <StackPanel>
+                        <TextBlock Style="{StaticResource FmText}" FontSize="14" FontWeight="SemiBold" TextWrapping="Wrap"
+                                   Text="{loc:Loc UpdateCheckAuto}" />
+                        <TextBlock Style="{StaticResource FmTextSecondary}" Margin="0,4,0,0" FontSize="12" Opacity="0.65" TextWrapping="Wrap"
+                                   Text="{loc:Loc UpdateCheckAutoHint}" />
+                        <TextBlock Style="{StaticResource FmTextSecondary}" x:Name="UpdateStatusText" Margin="0,8,0,0" FontSize="12" Opacity="0.85" TextWrapping="Wrap" />
+                    </StackPanel>
+                </ui:CardControl.Header>
+                <StackPanel>
+                    <ui:ToggleSwitch x:Name="UpdateToggle"
+                                     OffContent="{loc:Loc Off}"
+                                     OnContent="{loc:Loc On}"
+                                     Checked="OnUpdateToggleChanged"
+                                     Unchecked="OnUpdateToggleChanged" />
+                    <ui:Button x:Name="CheckUpdatesButton"
+                               Margin="0,12,0,0"
+                               Appearance="Secondary"
+                               Icon="{ui:SymbolIcon Symbol=ArrowSync24}"
+                               Content="{loc:Loc UpdateCheckNow}"
+                               Click="OnCheckUpdatesClick" />
+                </StackPanel>
             </ui:CardControl>
 
             <ui:CardControl Margin="0,12,0,0" Padding="16,14">

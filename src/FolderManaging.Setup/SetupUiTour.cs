@@ -50,6 +50,17 @@ internal static class SetupUiTour
                 Save(install, prefix + "failed");
                 install.Close();
 
+                var update = await ShowAsync(SetupWindow.ForUpdateTour());
+                Save(update, prefix + "update");
+                update.ShowResultForTour(false, UiText.Get("Error"),
+                    UiText.Format("UpdateOlderSetup", "2.2.0", "2.3.0"), [UiText.Format("DetailsLog", SetupLog.FilePath)]);
+                await SettleAsync(update, 600);
+                Save(update, prefix + "update-failed");
+                update.ShowResultForTour(false, UiText.Get("NotFinished"), UiText.Get("UpdateCancelled"), []);
+                await SettleAsync(update, 600);
+                Save(update, prefix + "update-cancelled");
+                update.Close();
+
                 var uninstall = await OpenAsync(SetupMode.Uninstall);
                 Save(uninstall, prefix + "uninstall");
                 uninstall.ShowResultForTour(true, UiText.Get("Removed"), UiText.Get("RemovedBody"),
@@ -70,9 +81,12 @@ internal static class SetupUiTour
         return true;
     }
 
-    static async Task<SetupWindow> OpenAsync(SetupMode mode)
+    static Task<SetupWindow> OpenAsync(SetupMode mode) => ShowAsync(new SetupWindow(mode));
+
+    static async Task<SetupWindow> ShowAsync(SetupWindow window)
     {
-        var window = new SetupWindow(mode) { Topmost = true, ShowActivated = false };
+        window.Topmost = true;
+        window.ShowActivated = false;
         if (_offScreen)
         {
             window.Topmost = false;

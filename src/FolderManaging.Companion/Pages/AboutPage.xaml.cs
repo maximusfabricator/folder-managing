@@ -23,6 +23,36 @@ public partial class AboutPage : System.Windows.Controls.UserControl
         NameLogoText.Text = UiText.Format("AboutNameLogo", AppInfo.Author);
         SourceHintText.Text = UiText.Format("AboutSourceHint", AppInfo.Author);
         SourceUrlText.Text = AppInfo.SourceUrl;
+
+        if (UpdateService.Current is { } updates)
+        {
+            Loaded += (_, _) =>
+            {
+                updates.StatusChanged += OnUpdateStatusChanged;
+                RefreshUpdateStatus();
+            };
+            Unloaded += (_, _) => updates.StatusChanged -= OnUpdateStatusChanged;
+        }
+        else
+        {
+            UpdatesCard.Visibility = Visibility.Collapsed;
+        }
+    }
+
+    void OnUpdateStatusChanged(object? sender, EventArgs e) => RefreshUpdateStatus();
+
+    void RefreshUpdateStatus()
+    {
+        if (UpdateService.Current is not { } updates)
+            return;
+        UpdateStatusText.Text = updates.StatusLine();
+        CheckUpdatesButton.IsEnabled = !updates.IsChecking;
+    }
+
+    async void OnCheckUpdatesClick(object sender, RoutedEventArgs e)
+    {
+        if (UpdateService.Current is { } updates)
+            await updates.CheckNowAsync();
     }
 
     void OnOpenLicenseClick(object sender, RoutedEventArgs e) =>

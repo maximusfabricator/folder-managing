@@ -38,7 +38,7 @@
             </StackPanel>
         </StackPanel>
 
-        <Grid Grid.Row="2" Margin="32,20,32,0" MinHeight="220">
+        <Grid x:Name="PageArea" Grid.Row="2" Margin="32,20,32,0" MinHeight="220">
             <!-- Install -->
             <StackPanel x:Name="InstallPage">
                 <TextBlock TextWrapping="Wrap" FontSize="14" LineHeight="21"
@@ -98,7 +98,7 @@
             </StackPanel>
         </Grid>
 
-        <Border Grid.Row="3" Margin="0,24,0,0" Padding="32,16"
+        <Border x:Name="Footer" Grid.Row="3" Margin="0,24,0,0" Padding="32,16"
                 Background="{DynamicResource CardBackgroundFillColorDefaultBrush}">
             <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
                 <ui:Button x:Name="SecondaryButton" MinWidth="110" Content="{loc:Loc Cancel}" Click="OnSecondaryClick" />

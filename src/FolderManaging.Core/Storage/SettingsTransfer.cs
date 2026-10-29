@@ -33,6 +33,9 @@ public sealed class SettingsExport
 
     public bool? AutoElevateProtectedFolders { get; set; }
 
+    /// <summary>"Check for updates automatically"; <c>null</c> in files from before 2.2.0.</summary>
+    public bool? CheckForUpdates { get; set; }
+
     public List<ExportedFolder> Folders { get; set; } = new();
 }
 
@@ -65,6 +68,7 @@ public static class SettingsTransfer
             Theme = doc.Theme,
             Language = doc.Language,
             AutoElevateProtectedFolders = doc.AutoElevateProtectedFolders,
+            CheckForUpdates = doc.CheckForUpdates,
             Folders = doc.Folders
                 .Where(StateMigration.HasCustomization)
                 .Select(f => new ExportedFolder { Path = f.Path, ColorToken = f.ColorToken, Tags = f.Tags.ToList() })
@@ -139,6 +143,8 @@ public static class SettingsTransfer
         doc.Language = import.Language;
         if (import.AutoElevateProtectedFolders is { } elevate)
             doc.AutoElevateProtectedFolders = elevate;
+        if (import.CheckForUpdates is { } checkUpdates)
+            doc.CheckForUpdates = checkUpdates;
 
         var changed = new List<string>();
         var missing = new List<string>();
