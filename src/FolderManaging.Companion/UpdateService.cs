@@ -16,10 +16,10 @@ using FolderManaging.Core.Updates;
 namespace FolderManaging.Companion;
 
 /// <summary>
-/// Update checks of the tray app (see <see cref="UpdateSchedule"/>): about 90 seconds after start, then once a day.
-/// Automatic checks are silent when they fail (error log only). A found version opens <see cref="UpdateWindow"/>
-/// without taking the focus, and only when Windows says the user is not in a full-screen app, a presentation or
-/// focus time; otherwise it waits and the tray menu offers the update meanwhile.
+/// Update checks of the tray app (see <see cref="UpdateSchedule"/>): about 90 seconds after every start, then once
+/// a day while that run continues. Automatic checks are silent when they fail (error log only). A found version
+/// opens <see cref="UpdateWindow"/> in front and names the version in a tray notification. Full-screen apps, games,
+/// presentations and Focus assist wait; the tray menu offers the update meanwhile.
 /// </summary>
 internal sealed class UpdateService : IDisposable
 {
@@ -38,7 +38,7 @@ internal sealed class UpdateService : IDisposable
 
     UpdateService()
     {
-        _timer = new DispatcherTimer(DispatcherPriority.Background);
+        _timer = new DispatcherTimer(DispatcherPriority.Normal);
         _timer.Tick += OnTick;
     }
 
@@ -205,10 +205,12 @@ internal sealed class UpdateService : IDisposable
         }
 
         _offerWaiting = false;
-        var window = EnsureWindow(activate: manual);
+        var window = EnsureWindow(activate: true);
         if (window.State is UpdateWindowState.Downloading or UpdateWindowState.Starting)
             return;
         window.ShowAvailable(manifest);
+        if (!manual)
+            App.Tray?.ShowBalloon(UiText.Format("UpdateAvailableTitle", manifest.Version));
     }
 
     /// <summary>"Later": nothing is stored; the next daily check shows the window again.</summary>
@@ -413,20 +415,18 @@ internal sealed class UpdateService : IDisposable
         }
     }
 
-    /// <summary>False during full-screen games and videos, presentations, focus time and on the lock screen.</summary>
+    /// <summary>False during a full-screen game, a presentation, Focus assist or a full-screen Store app.</summary>
     static bool UserAcceptsWindows()
     {
         try
         {
-            return SHQueryUserNotificationState(out var state) != 0 || state == QunsAcceptsNotifications;
+            return SHQueryUserNotificationState(out var state) != 0 || UpdateSchedule.AcceptsUpdateWindow(state);
         }
         catch (Exception ex) when (ex is DllNotFoundException or EntryPointNotFoundException)
         {
             return true;
         }
     }
-
-    const int QunsAcceptsNotifications = 5;
 
     [DllImport("shell32.dll")]
     static extern int SHQueryUserNotificationState(out int state);

@@ -1,5 +1,18 @@
 # Changelog
 
+## 2.2.2 — 2026-10-30
+
+### Fixed
+
+- **The update window scrolls.** The notes and the buttons were cut off, and there was no way to scroll to them.
+  The notes now scroll inside the window. *Update*, *Later* and *Skip this version* stay on screen. The window
+  grows to fit, up to the size of the screen, and it can be resized.
+- **A new version shows up after the app starts.** The check about a minute and a half after start was skipped
+  when the app had already checked during the last day, so a release that came out later stayed quiet until
+  *Check for updates* was pressed. Starting the app checks again. While it keeps running, it still checks once a
+  day. The window comes to the front, and the tray names the version. Full-screen apps, games, presentations and
+  Focus assist still wait.
+
 ## 2.2.1 — 2026-10-30
 
 ### Fixed

@@ -24,7 +24,7 @@ internal enum UpdateWindowState
 
 /// <summary>
 /// "A new version is out": the release notes, Update / Later / Skip this version, then the download with progress.
-/// Opened by <see cref="UpdateService"/>; after an automatic check it opens without taking the focus.
+/// The notes scroll inside the window; the buttons stay on screen. Opened by <see cref="UpdateService"/>.
 /// </summary>
 public partial class UpdateWindow : FluentWindow
 {
@@ -137,6 +137,59 @@ public partial class UpdateWindow : FluentWindow
         SecondaryButton.Content = secondary;
         SkipButton.Visibility = skip ? Visibility.Visible : Visibility.Collapsed;
         Footer.Visibility = primary is null && secondary is null && !skip ? Visibility.Collapsed : Visibility.Visible;
+        Refit();
+    }
+
+    /// <summary>
+    /// Grows to the notes, but never past the screen. What does not fit scrolls; the buttons stay in view.
+    /// <see cref="SizeToContent"/> does not notice a panel changing from collapsed to visible, which left the
+    /// notes and the buttons cut off.
+    /// </summary>
+    void Refit()
+    {
+        if (Content is not FrameworkElement root)
+            return;
+
+        var max = Math.Max(MinHeight, SystemParameters.WorkArea.Height - 32);
+        MaxHeight = max;
+
+        var width = ActualWidth > 1 ? ActualWidth : Width;
+        if (double.IsNaN(width) || width < 1)
+            width = 580;
+        root.Measure(new System.Windows.Size(width, double.PositiveInfinity));
+        var desired = root.DesiredSize.Height;
+        if (desired < 1)
+            desired = NotesPanel.Visibility == Visibility.Visible ? 520 : MinHeight;
+
+        var chrome = ActualHeight > 0 && root.ActualHeight > 0 ? Math.Max(0, ActualHeight - root.ActualHeight) : 0;
+        SizeToContent = SizeToContent.Manual;
+        Height = Math.Clamp(desired + chrome, MinHeight, max);
+        KeepOnScreen();
+        UpdateLayout();
+        BodyScroll.ScrollToTop();
+    }
+
+    /// <summary>
+    /// Growing after the window was centered must not push the buttons below the screen.
+    /// A window that does not touch the work area (the off-screen tour) stays where it was put.
+    /// </summary>
+    void KeepOnScreen()
+    {
+        if (!IsVisible || double.IsNaN(Left) || double.IsNaN(Top))
+            return;
+        var area = SystemParameters.WorkArea;
+        var bounds = new Rect(Left, Top, ActualWidth > 1 ? ActualWidth : Width, Height);
+        if (!area.IntersectsWith(bounds))
+            return;
+        if (Top < area.Top)
+            Top = area.Top;
+        if (Top + Height > area.Bottom)
+            Top = Math.Max(area.Top, area.Bottom - Height);
+        var width = bounds.Width;
+        if (Left < area.Left)
+            Left = area.Left;
+        if (Left + width > area.Right)
+            Left = Math.Max(area.Left, area.Right - width);
     }
 
     async void OnPrimaryClick(object sender, RoutedEventArgs e)

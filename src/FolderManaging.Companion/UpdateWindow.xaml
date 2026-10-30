@@ -7,64 +7,19 @@
                  xmlns:loc="clr-namespace:FolderManaging.Companion.Localization"
                  Icon="pack://application:,,,/Assets/FolderManaging.ico"
                  Title="{loc:Loc UpdateWindowTitle}"
-                 Width="580" SizeToContent="Height" MinHeight="0"
-                 ResizeMode="NoResize"
+                 Width="580" MinWidth="520" MinHeight="220"
+                 SizeToContent="Height"
+                 ResizeMode="CanResize"
                  WindowStartupLocation="CenterScreen"
                  WindowBackdropType="Mica"
                  ExtendsContentIntoTitleBar="True"
                  Foreground="{DynamicResource TextFillColorPrimaryBrush}"
                  TextElement.Foreground="{DynamicResource TextFillColorPrimaryBrush}"
                  Closing="OnClosing">
-    <Grid>
-        <Grid.RowDefinitions>
-            <RowDefinition Height="Auto" />
-            <RowDefinition Height="Auto" />
-            <RowDefinition Height="Auto" />
-        </Grid.RowDefinitions>
+    <DockPanel>
+        <ui:TitleBar x:Name="Bar" DockPanel.Dock="Top" Title="{loc:Loc UpdateWindowTitle}" ShowMaximize="False" ShowMinimize="False" />
 
-        <ui:TitleBar x:Name="Bar" Grid.Row="0" Title="{loc:Loc UpdateWindowTitle}" ShowMaximize="False" ShowMinimize="False" />
-
-        <StackPanel Grid.Row="1" Margin="24,4,24,20">
-            <Grid>
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="Auto" />
-                    <ColumnDefinition Width="*" />
-                </Grid.ColumnDefinitions>
-                <Grid Grid.Column="0" Width="32" MinHeight="32" Margin="0,0,16,0" VerticalAlignment="Top">
-                    <ui:SymbolIcon x:Name="Glyph" FontSize="32" Filled="True" Symbol="ArrowCircleDown24" />
-                    <ui:ProgressRing x:Name="Ring" Width="28" Height="28" IsIndeterminate="True" Visibility="Collapsed" />
-                </Grid>
-                <StackPanel Grid.Column="1">
-                    <TextBlock x:Name="Headline" Style="{StaticResource FmText}" FontSize="20" FontWeight="SemiBold" TextWrapping="Wrap" />
-                    <TextBlock x:Name="Body" Style="{StaticResource FmTextSecondary}" Margin="0,6,0,0" FontSize="14" LineHeight="21" TextWrapping="Wrap" />
-                </StackPanel>
-            </Grid>
-
-            <StackPanel x:Name="NotesPanel" Margin="0,18,0,0" Visibility="Collapsed">
-                <TextBlock Style="{StaticResource FmText}" FontSize="14" FontWeight="SemiBold" Text="{loc:Loc UpdateWhatsNew}" />
-                <Border Margin="0,8,0,0" Padding="14,10" CornerRadius="6"
-                        Background="{DynamicResource CardBackgroundFillColorDefaultBrush}"
-                        BorderBrush="{DynamicResource CardStrokeColorDefaultBrush}" BorderThickness="1">
-                    <ScrollViewer Height="220" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
-                        <TextBlock x:Name="Notes" Style="{StaticResource FmText}" Margin="0,0,14,0" FontSize="13" LineHeight="19" TextWrapping="Wrap"
-                                   FlowDirection="LeftToRight" />
-                    </ScrollViewer>
-                </Border>
-                <ui:HyperlinkButton x:Name="ReleaseLink" Margin="-10,6,0,0" Padding="10,4" HorizontalAlignment="Left"
-                                    Icon="{ui:SymbolIcon Symbol=Open24}"
-                                    Content="{loc:Loc UpdateReleasePage}" Click="OnReleaseLinkClick" />
-            </StackPanel>
-
-            <StackPanel x:Name="ProgressPanel" Margin="0,18,0,0" Visibility="Collapsed">
-                <ProgressBar x:Name="DownloadBar" Height="4" Minimum="0" Maximum="100" />
-                <TextBlock x:Name="ProgressText" Style="{StaticResource FmTextSecondary}" Margin="0,8,0,0" FontSize="13" TextWrapping="Wrap" />
-            </StackPanel>
-
-            <TextBlock x:Name="Details" Style="{StaticResource FmTextSecondary}" Margin="0,12,0,0" FontSize="12" Opacity="0.8"
-                       TextWrapping="Wrap" Visibility="Collapsed" />
-        </StackPanel>
-
-        <Border x:Name="Footer" Grid.Row="2" Padding="24,16"
+        <Border x:Name="Footer" DockPanel.Dock="Bottom" Padding="24,16"
                 Background="{DynamicResource SolidBackgroundFillColorBaseBrush}"
                 BorderBrush="{DynamicResource ControlStrokeColorDefaultBrush}"
                 BorderThickness="0,1,0,0">
@@ -77,5 +32,46 @@
                            Click="OnSecondaryClick" />
             </DockPanel>
         </Border>
-    </Grid>
+
+        <StackPanel x:Name="ProgressPanel" DockPanel.Dock="Bottom" Margin="24,8,24,4" Visibility="Collapsed">
+            <ProgressBar x:Name="DownloadBar" Height="4" Minimum="0" Maximum="100" />
+            <TextBlock x:Name="ProgressText" Style="{StaticResource FmTextSecondary}" Margin="0,8,0,8" FontSize="13" TextWrapping="Wrap" />
+        </StackPanel>
+
+        <ScrollViewer x:Name="BodyScroll" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled"
+                      Padding="0,0,4,0">
+            <StackPanel Margin="24,4,24,20">
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+                    <Grid Grid.Column="0" Width="32" MinHeight="32" Margin="0,0,16,0" VerticalAlignment="Top">
+                        <ui:SymbolIcon x:Name="Glyph" FontSize="32" Filled="True" Symbol="ArrowCircleDown24" />
+                        <ui:ProgressRing x:Name="Ring" Width="28" Height="28" IsIndeterminate="True" Visibility="Collapsed" />
+                    </Grid>
+                    <StackPanel Grid.Column="1">
+                        <TextBlock x:Name="Headline" Style="{StaticResource FmText}" FontSize="20" FontWeight="SemiBold" TextWrapping="Wrap" />
+                        <TextBlock x:Name="Body" Style="{StaticResource FmTextSecondary}" Margin="0,6,0,0" FontSize="14" LineHeight="21" TextWrapping="Wrap" />
+                    </StackPanel>
+                </Grid>
+
+                <StackPanel x:Name="NotesPanel" Margin="0,18,0,0" Visibility="Collapsed">
+                    <TextBlock Style="{StaticResource FmText}" FontSize="14" FontWeight="SemiBold" Text="{loc:Loc UpdateWhatsNew}" />
+                    <Border Margin="0,8,0,0" Padding="14,10" CornerRadius="6"
+                            Background="{DynamicResource CardBackgroundFillColorDefaultBrush}"
+                            BorderBrush="{DynamicResource CardStrokeColorDefaultBrush}" BorderThickness="1">
+                        <TextBlock x:Name="Notes" Style="{StaticResource FmText}" FontSize="13" LineHeight="19" TextWrapping="Wrap"
+                                   FlowDirection="LeftToRight" />
+                    </Border>
+                    <ui:HyperlinkButton x:Name="ReleaseLink" Margin="-10,6,0,0" Padding="10,4" HorizontalAlignment="Left"
+                                        Icon="{ui:SymbolIcon Symbol=Open24}"
+                                        Content="{loc:Loc UpdateReleasePage}" Click="OnReleaseLinkClick" />
+                </StackPanel>
+
+                <TextBlock x:Name="Details" Style="{StaticResource FmTextSecondary}" Margin="0,12,0,0" FontSize="12" Opacity="0.8"
+                           TextWrapping="Wrap" Visibility="Collapsed" />
+            </StackPanel>
+        </ScrollViewer>
+    </DockPanel>
 </ui:FluentWindow>

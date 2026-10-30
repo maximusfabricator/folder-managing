@@ -134,9 +134,17 @@ static partial class Program
             Expect(UpdateSchedule.NextCheckUtc(null, start, now) == start + UpdateSchedule.StartupDelay, "first check");
             Expect(UpdateSchedule.StartupDelay >= TimeSpan.FromMinutes(1) && UpdateSchedule.StartupDelay <= TimeSpan.FromMinutes(2), "start delay");
             Expect(UpdateSchedule.Interval == TimeSpan.FromHours(24), "interval");
-            Expect(UpdateSchedule.NextCheckUtc(now.AddHours(-1), start, now) == now.AddHours(23), "checked an hour ago");
+            Expect(UpdateSchedule.NextCheckUtc(now.AddHours(-1), start, now) == start + UpdateSchedule.StartupDelay, "checked an hour before this start");
             Expect(UpdateSchedule.NextCheckUtc(now.AddHours(-30), start, now) == start + UpdateSchedule.StartupDelay, "overdue");
             Expect(UpdateSchedule.NextCheckUtc(now.AddDays(3), start, now) == start + UpdateSchedule.StartupDelay, "last check in the future");
+            var runningSince = now.AddHours(-3);
+            var checkedAt = now.AddHours(-1);
+            Expect(UpdateSchedule.NextCheckUtc(checkedAt, runningSince, now) == checkedAt + UpdateSchedule.Interval, "checked an hour into this run");
+            Expect(UpdateSchedule.AcceptsUpdateWindow(1) && UpdateSchedule.AcceptsUpdateWindow(2) && UpdateSchedule.AcceptsUpdateWindow(5), "desktop, away and busy still show the window");
+            Expect(!UpdateSchedule.AcceptsUpdateWindow(UpdateSchedule.NotificationFullScreen), "full screen game");
+            Expect(!UpdateSchedule.AcceptsUpdateWindow(UpdateSchedule.NotificationPresentation), "presentation");
+            Expect(!UpdateSchedule.AcceptsUpdateWindow(UpdateSchedule.NotificationQuietTime), "quiet time");
+            Expect(!UpdateSchedule.AcceptsUpdateWindow(UpdateSchedule.NotificationImmersive), "full screen store app");
         });
 
         Check("update offer: later, skip, newer than skipped, manual, never downgrade", () =>
