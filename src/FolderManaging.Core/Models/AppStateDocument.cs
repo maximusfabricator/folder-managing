@@ -42,6 +42,12 @@ public sealed class AppStateDocument
     List<string> _hiddenColorIds = new();
 
     /// <summary>
+    /// <c>true</c> after the built-in folder colors (red, blue, green, purple) have been offered once.
+    /// A later delete stays deleted: the next load does not put them back.
+    /// </summary>
+    public bool? BuiltinColorsSeeded { get; set; }
+
+    /// <summary>
     /// <c>true</c> after the four default tags have been offered once.
     /// A missing value on an already saved file means the user already had a tag list, so defaults must not return.
     /// </summary>

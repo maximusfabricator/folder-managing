@@ -30,6 +30,9 @@ public static class MenuPresetNormalizer
                 byColorId[c.Id] = c;
         }
 
+        // The first time through, everyone gets red, blue, green and purple. After that a deleted
+        // built-in color stays deleted, the same way a deleted custom color does.
+        var seedBuiltins = doc.BuiltinColorsSeeded != true;
         foreach (var (id, rgb) in FolderColors.PresetRgb)
         {
             if (byColorId.TryGetValue(id, out var row))
@@ -39,6 +42,9 @@ public static class MenuPresetNormalizer
                 continue;
             }
 
+            if (!seedBuiltins)
+                continue;
+
             doc.MenuColors.Add(new MenuColorPreset
             {
                 Id = id,
@@ -46,6 +52,8 @@ public static class MenuPresetNormalizer
                 HexRgb = MenuColorHex.ToHexRgb(rgb),
             });
         }
+
+        doc.BuiltinColorsSeeded = true;
 
         if (doc.MenuTags.Count == 0)
         {

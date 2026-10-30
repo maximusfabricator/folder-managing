@@ -39,14 +39,12 @@ public static class HiddenColors
         doc.HiddenColorIds?.Any(h => string.Equals(h, id, StringComparison.OrdinalIgnoreCase)) == true;
 
     /// <summary>
-    /// Custom colors can be deleted. Built-in palette colors and scheme colors cannot:
-    /// the Colors page shows Hide for those, never Delete.
+    /// My colors, including the built-in red, blue, green and purple, can be deleted.
+    /// A scheme color cannot: the Colors page shows Hide for it, and Restore brings it back.
     /// </summary>
     public static bool CanDelete(string? id)
     {
         if (string.IsNullOrWhiteSpace(id))
-            return false;
-        if (FolderColors.PresetRgb.ContainsKey(id))
             return false;
         if (id.StartsWith(ColorSchemes.IdPrefix, StringComparison.OrdinalIgnoreCase))
             return false;

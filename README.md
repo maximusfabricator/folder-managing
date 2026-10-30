@@ -100,7 +100,7 @@ How it works:
 What is sent: only the download requests themselves, to `github.com` (and GitHub's download servers
 `objects.githubusercontent.com` and `release-assets.githubusercontent.com`). No personal data, folder names or
 settings are sent. Like every website, GitHub sees your IP address, and the request names the app and its version
-(`User-Agent: FolderManaging/2.2.3`). The app uses the Windows proxy settings.
+(`User-Agent: FolderManaging/2.2.4`). The app uses the Windows proxy settings.
 
 To turn the checks off: **Settings → Check for updates automatically**. *Check for updates* (in Settings, on the
 About page and in the tray menu) still works when you want it. Command line:

@@ -1,5 +1,13 @@
 # Changelog
 
+## 2.2.4 — 2026-10-30
+
+### Changed
+
+- **The default colors can be deleted.** Red, blue, green and purple on Folder colors had Hide, because Delete
+  put them back. They now have Delete, the same as a color you added yourself. A folder already painted with
+  that color keeps it. Colors inside a color scheme still use Hide, and Restore brings those back.
+
 ## 2.2.3 — 2026-10-30
 
 ### New

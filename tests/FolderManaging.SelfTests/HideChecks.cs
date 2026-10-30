@@ -33,7 +33,7 @@ static partial class Program
 
     static void HideChecks()
     {
-        Check("hide: a built-in color leaves the menu and comes back; a custom color is deleted, not hidden", () =>
+        Check("delete: a built-in color leaves the menu and stays gone; a scheme color is hidden, not deleted", () =>
         {
             var doc = new AppStateDocument();
             MenuPresetNormalizer.Merge(doc);
@@ -41,25 +41,22 @@ static partial class Program
             doc.Folders.Add(new FolderStateEntry { Path = @"C:\FmSelfTest\Red", ColorToken = "red", Id = "abc" });
             doc.RememberRecentColor("red");
 
-            Expect(HiddenColors.CanHide("red") && !HiddenColors.CanDelete("red"), "built-in can be deleted");
+            Expect(HiddenColors.CanDelete("red") && !HiddenColors.CanHide("red"), "built-in cannot be deleted");
             Expect(HiddenColors.CanDelete("custom-01") && !HiddenColors.CanHide("custom-01"), "custom color can be hidden");
             Expect(!HiddenColors.CanDelete("scheme-vivid-red") && HiddenColors.CanHide("scheme-vivid-red"), "scheme color can be deleted");
 
             HiddenColors.Hide(doc, "custom-01");
             Expect(!HiddenColors.IsHidden(doc, "custom-01"), "custom color was hidden");
 
-            HiddenColors.Hide(doc, "red");
-            Expect(HiddenColors.IsHidden(doc, "RED"), "hide ignored case");
+            doc.MenuColors.RemoveAll(c => string.Equals(c.Id, "red", StringComparison.OrdinalIgnoreCase));
+            MenuPresetNormalizer.Merge(doc);
+            Expect(!doc.MenuColors.Any(c => string.Equals(c.Id, "red", StringComparison.OrdinalIgnoreCase)), "deleted built-in came back");
             Expect(doc.Folders.Single().ColorToken == "red" && doc.Folders.Single().Id == "abc", "painted folder changed");
             Expect(doc.RecentColors.Contains("red"), "recent history was cleared");
-            Expect(doc.MenuColors.Any(c => c.Id == "red"), "the color row was removed");
+            Expect(FolderColors.TryGetColor("red", out _), "a painted folder can no longer resolve red");
             var lines = ContextMenuPlan.Build(doc);
-            Expect(!lines.Any(l => l.Token == "red"), "hidden color still offered");
+            Expect(!lines.Any(l => l.Token == "red"), "deleted color still offered");
             Expect(lines.Any(l => l.Token == "custom-01"), "custom color left the menu");
-
-            HiddenColors.Restore(doc, "Red");
-            Expect(!HiddenColors.IsHidden(doc, "red"), "restore failed");
-            Expect(ContextMenuPlan.Build(doc).Any(l => l.Kind == "color" && l.Token == "red"), "restored color missing from the menu");
         });
 
         Check("hide: a scheme color stays hidden when the scheme is turned off and on", () =>
@@ -71,14 +68,14 @@ static partial class Program
             doc.Folders.Add(new FolderStateEntry { Path = @"C:\FmSelfTest\Vivid", ColorToken = "scheme-vivid-red" });
             doc.RememberRecentColor("scheme-vivid-red");
             HiddenColors.Hide(doc, "scheme-vivid-red");
-            HiddenColors.Hide(doc, "purple");
+            doc.MenuColors.RemoveAll(c => string.Equals(c.Id, "purple", StringComparison.OrdinalIgnoreCase));
 
             ColorSchemes.SetEnabled(doc, "vivid", false);
             MenuPresetNormalizer.Merge(doc);
             ColorSchemes.SetEnabled(doc, "vivid", true);
             MenuPresetNormalizer.Merge(doc);
 
-            Expect(doc.HiddenColorIds.Contains("scheme-vivid-red") && doc.HiddenColorIds.Contains("purple"),
+            Expect(doc.HiddenColorIds.Contains("scheme-vivid-red") && !doc.MenuColors.Any(c => c.Id == "purple"),
                 $"hidden list changed: {string.Join(",", doc.HiddenColorIds)}");
             Expect(doc.Folders.Single().ColorToken == "scheme-vivid-red", "scheme folder was repainted");
             var lines = ContextMenuPlan.Build(doc);
@@ -108,23 +105,22 @@ static partial class Program
         {
             var doc = new AppStateDocument();
             MenuPresetNormalizer.Merge(doc);
-            HiddenColors.Hide(doc, "blue");
             ColorSchemes.SetEnabled(doc, "ocean", true);
             HiddenColors.Hide(doc, "scheme-ocean-blue");
             var json = SettingsTransfer.Export(doc, "2.2.1");
             Expect(json.Contains("\"hiddenColorIds\""), "not exported");
 
             var target = new AppStateDocument();
-            HiddenColors.Hide(target, "green");
+            HiddenColors.Hide(target, "scheme-vivid-red");
             SettingsTransfer.Apply(target, SettingsTransfer.Parse(json), _ => false);
-            Expect(target.HiddenColorIds.SequenceEqual(["blue", "scheme-ocean-blue"]),
+            Expect(target.HiddenColorIds.SequenceEqual(["scheme-ocean-blue"]),
                 $"imported: {string.Join(",", target.HiddenColorIds)}");
 
             var node = System.Text.Json.Nodes.JsonNode.Parse(json)!.AsObject();
             node.Remove("hiddenColorIds");
-            HiddenColors.Hide(target, "red");
+            HiddenColors.Hide(target, "scheme-status-red");
             SettingsTransfer.Apply(target, SettingsTransfer.Parse(node.ToJsonString()), _ => false);
-            Expect(target.HiddenColorIds.Contains("red") && target.HiddenColorIds.Contains("blue"), "an older export cleared hidden colors");
+            Expect(target.HiddenColorIds.Contains("scheme-status-red") && target.HiddenColorIds.Contains("scheme-ocean-blue"), "an older export cleared hidden colors");
         });
 
         WithTempState(dir =>
@@ -135,7 +131,7 @@ static partial class Program
                 var doc = JsonFolderStateStore.LoadSynchronously();
                 Expect(doc.HiddenColorIds.Count == 0 && doc.Folders[0].ColorToken == "red", "old file did not load");
                 var before = doc.Folders[0].ColorToken;
-                HiddenColors.Hide(doc, "red");
+                doc.MenuColors.RemoveAll(c => string.Equals(c.Id, "red", StringComparison.OrdinalIgnoreCase));
                 ColorSchemes.SetEnabled(doc, "status", true);
                 HiddenColors.Hide(doc, "scheme-status-red");
                 JsonFolderStateStore.SaveSynchronously(doc);
@@ -148,7 +144,8 @@ static partial class Program
                 Expect(MenuStateReader.TryGetMenuTint("scheme-status-red", out var schemeTint) && MenuColorHex.ToHexRgb(schemeTint) == "D13438", "painted scheme color lost its tint");
                 var again = JsonFolderStateStore.LoadSynchronously();
                 Expect(again.Folders[0].ColorToken == before && again.Folders.Count == 10, "folders changed on disk");
-                Expect(again.HiddenColorIds.Contains("red") && again.HiddenColorIds.Contains("scheme-status-red"),
+                Expect(!again.MenuColors.Any(c => string.Equals(c.Id, "red", StringComparison.OrdinalIgnoreCase))
+                       && again.HiddenColorIds.Contains("scheme-status-red"),
                     $"loaded hidden: {string.Join(",", again.HiddenColorIds)}");
                 ColorSchemes.SetEnabled(again, "status", false);
                 ColorSchemes.SetEnabled(again, "status", true);

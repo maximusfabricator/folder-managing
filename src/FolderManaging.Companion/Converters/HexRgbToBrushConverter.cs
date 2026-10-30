@@ -24,7 +24,7 @@ internal sealed class HexRgbToBrushConverter : IValueConverter
         throw new NotSupportedException();
 }
 
-/// <summary>Shows Hide on a color that cannot be deleted, and Delete on a custom color.</summary>
+/// <summary>Shows Hide on a scheme color, and Delete on a color from My colors.</summary>
 internal sealed class ColorActionVisibilityConverter : IValueConverter
 {
     public object Convert(object? value, Type targetType, object? parameter, CultureInfo culture)
