@@ -192,6 +192,13 @@ public partial class UpdateWindow : FluentWindow
             Left = Math.Max(area.Left, area.Right - width);
     }
 
+    /// <summary>The corner notice already asked; start the download in this window.</summary>
+    internal void StartInstall()
+    {
+        if (State == UpdateWindowState.Available && _manifest is not null)
+            _ = InstallAsync(_manifest);
+    }
+
     async void OnPrimaryClick(object sender, RoutedEventArgs e)
     {
         switch (State)

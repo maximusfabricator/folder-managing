@@ -2,6 +2,8 @@
 // Copyright (C) 2026 maximusfabricator
 
 using System.Drawing;
+using System.Drawing.Drawing2D;
+using System.Runtime.InteropServices;
 using System.Windows;
 using System.Windows.Forms;
 using FolderManaging.Core.Diagnostics;
@@ -13,17 +15,24 @@ namespace FolderManaging.Companion;
 internal sealed class TrayIconService : IDisposable
 {
     readonly NotifyIcon _icon;
+    readonly Icon _baseIcon;
+    readonly Icon _badgeIcon;
     MainWindow? _mainWindow;
     bool _exitRequested;
 
     internal TrayIconService()
     {
+        var loaded = LoadTrayIcon();
+        _baseIcon = (Icon)loaded.Clone();
+        if (!ReferenceEquals(loaded, SystemIcons.Application))
+            loaded.Dispose();
+        _badgeIcon = MakeBadge(_baseIcon);
         _icon = new NotifyIcon
         {
             Text = "Folder Managing",
             Visible = true,
             ContextMenuStrip = BuildMenu(),
-            Icon = LoadTrayIcon(),
+            Icon = _baseIcon,
         };
         _icon.DoubleClick += (_, _) => OpenQuickColor();
         ClickTrace.Step("tray icon created");
@@ -37,9 +46,9 @@ internal sealed class TrayIconService : IDisposable
         };
         menu.Items.Add(UiText.Get("TrayPaint"), null, (_, _) => OpenQuickColor());
         menu.Items.Add(new ToolStripSeparator());
-        if (_updateVersion is { } version)
+        if (_updateVersion is not null)
         {
-            var update = menu.Items.Add(UiText.Format("TrayUpdateAvailable", version), null, (_, _) => UpdateService.Current?.ShowAvailable());
+            var update = menu.Items.Add(UiText.Get("UpdateAvailableList"), null, (_, _) => UpdateService.Current?.ShowAvailable());
             update.Font = new Font(update.Font, System.Drawing.FontStyle.Bold);
         }
 
@@ -52,12 +61,15 @@ internal sealed class TrayIconService : IDisposable
 
     FolderManaging.Core.Updates.UpdateVersion? _updateVersion;
 
-    /// <summary>Shows or removes the "Update to version …" item.</summary>
+    /// <summary>Shows or removes the "Available updates" item and the orange mark on the tray icon.</summary>
     internal void SetUpdateAvailable(FolderManaging.Core.Updates.UpdateVersion? version)
     {
         if (_updateVersion == version && _icon.ContextMenuStrip is not null)
             return;
         _updateVersion = version;
+        _icon.Icon = version is null ? _baseIcon : _badgeIcon;
+        var tip = version is null ? "Folder Managing" : UiText.Format("UpdateAvailableTitle", version);
+        _icon.Text = tip.Length <= 127 ? tip : tip[..127];
         RebuildMenu();
     }
 
@@ -217,9 +229,46 @@ internal sealed class TrayIconService : IDisposable
         return SystemIcons.Application;
     }
 
+    /// <summary>The ordinary logo with the orange update mark Windows uses for an update that is still waiting.</summary>
+    static Icon MakeBadge(Icon source)
+    {
+        using var sized = new Icon(source, 32, 32);
+        using var bmp = sized.ToBitmap();
+        using (var g = Graphics.FromImage(bmp))
+        {
+            g.SmoothingMode = SmoothingMode.AntiAlias;
+            const float d = 15f;
+            var x = bmp.Width - d - 1;
+            var y = bmp.Height - d - 1;
+            using var brush = new SolidBrush(Color.FromArgb(255, 232, 102, 0));
+            g.FillEllipse(brush, x, y, d, d);
+            using var pen = new Pen(Color.White, 1.7f) { StartCap = LineCap.Round, EndCap = LineCap.Round };
+            g.DrawArc(pen, x + 3.4f, y + 3.4f, d - 6.8f, d - 6.8f, 50, 250);
+            g.DrawLine(pen, x + d - 5.4f, y + 4.6f, x + d - 3.2f, y + 6.8f);
+            g.DrawLine(pen, x + d - 5.4f, y + 4.6f, x + d - 7.4f, y + 6.2f);
+        }
+
+        var handle = bmp.GetHicon();
+        try
+        {
+            using var tmp = Icon.FromHandle(handle);
+            return (Icon)tmp.Clone();
+        }
+        finally
+        {
+            DestroyIcon(handle);
+        }
+    }
+
+    [DllImport("user32.dll", SetLastError = true)]
+    static extern bool DestroyIcon(IntPtr handle);
+
     public void Dispose()
     {
         _icon.Visible = false;
+        _icon.Icon = null;
         _icon.Dispose();
+        _badgeIcon.Dispose();
+        _baseIcon.Dispose();
     }
 }

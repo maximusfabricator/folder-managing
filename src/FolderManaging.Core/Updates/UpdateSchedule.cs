@@ -12,7 +12,7 @@ namespace FolderManaging.Core.Updates;
 public static class UpdateSchedule
 {
     public static readonly TimeSpan Interval = TimeSpan.FromHours(24);
-    public static readonly TimeSpan StartupDelay = TimeSpan.FromSeconds(90);
+    public static readonly TimeSpan StartupDelay = TimeSpan.FromSeconds(15);
 
     /// <summary><c>QUERY_USER_NOTIFICATION_STATE</c> values that mean "do not open a window now".</summary>
     public const int NotificationFullScreen = 3;

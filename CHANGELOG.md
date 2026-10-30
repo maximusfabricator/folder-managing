@@ -1,5 +1,19 @@
 # Changelog
 
+## 2.2.3 — 2026-10-30
+
+### New
+
+- **Available updates stays on screen.** When a new version is out, a notice stays in the corner until you choose
+  *Update* or *Later*. The tray icon keeps an orange mark until you update or skip that version. Closing the notice
+  does not hide the mark.
+
+### Fixed
+
+- **Starting the app checks for updates.** About 15 seconds after each start, Folder Managing looks for a new version,
+  even if it already checked earlier that day. The update window still scrolls, so the notes and the buttons stay
+  on screen.
+
 ## 2.2.2 — 2026-10-30
 
 ### Fixed

@@ -17,7 +17,7 @@
 
   <Identity Name="FolderManaging"
             Publisher="CN=Folder Managing"
-            Version="2.2.2.0"
+            Version="2.2.3.0"
             ProcessorArchitecture="x64" />
 
   <Properties>

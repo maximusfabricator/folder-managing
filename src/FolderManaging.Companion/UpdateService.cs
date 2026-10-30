@@ -16,10 +16,11 @@ using FolderManaging.Core.Updates;
 namespace FolderManaging.Companion;
 
 /// <summary>
-/// Update checks of the tray app (see <see cref="UpdateSchedule"/>): about 90 seconds after every start, then once
+/// Update checks of the tray app (see <see cref="UpdateSchedule"/>): about 15 seconds after every start, then once
 /// a day while that run continues. Automatic checks are silent when they fail (error log only). A found version
-/// opens <see cref="UpdateWindow"/> in front and names the version in a tray notification. Full-screen apps, games,
-/// presentations and Focus assist wait; the tray menu offers the update meanwhile.
+/// leaves <see cref="UpdateNoticeWindow"/> in the corner until the user updates or chooses Later, and marks the
+/// tray icon until the user updates or skips that version. Full-screen apps, games, presentations and Focus assist
+/// wait; the tray mark is shown meanwhile.
 /// </summary>
 internal sealed class UpdateService : IDisposable
 {
@@ -32,6 +33,7 @@ internal sealed class UpdateService : IDisposable
     readonly DateTime _startedUtc = DateTime.UtcNow;
     DateTime _notBeforeUtc = DateTime.MinValue;
     UpdateWindow? _window;
+    UpdateNoticeWindow? _notice;
     bool _checking;
     bool _manualWaiting;
     bool _offerWaiting;
@@ -205,19 +207,70 @@ internal sealed class UpdateService : IDisposable
         }
 
         _offerWaiting = false;
+        Raise();
+        if (manual)
+        {
+            DismissNotice();
+            var window = EnsureWindow(activate: true);
+            if (window.State is UpdateWindowState.Downloading or UpdateWindowState.Starting)
+                return;
+            window.ShowAvailable(manifest);
+            return;
+        }
+
+        ShowNotice(manifest);
+    }
+
+    /// <summary>The corner notice. A second call leaves the one that is already open.</summary>
+    void ShowNotice(UpdateManifest manifest)
+    {
+        if (_notice is { IsLoaded: true })
+        {
+            _notice.Place();
+            return;
+        }
+
+        _notice = new UpdateNoticeWindow(this, manifest);
+        _notice.Closed += (_, _) => _notice = null;
+#if FM_DEV
+        BeforeShowForTour?.Invoke(_notice);
+#endif
+        _notice.Place();
+        _notice.Show();
+    }
+
+    void DismissNotice()
+    {
+        var notice = _notice;
+        _notice = null;
+        notice?.DismissWithoutCallback();
+    }
+
+    /// <summary>The notice was closed. The tray mark stays until the next check, an update or Skip.</summary>
+    internal void NoticeDismissed()
+    {
+        _notice = null;
+        _offerWaiting = false;
+        Raise();
+    }
+
+    /// <summary>"Later": nothing is stored; the next check shows the notice again. The tray mark stays.</summary>
+    internal void Later()
+    {
+        _offerWaiting = false;
+        DismissNotice();
+        Raise();
+    }
+
+    /// <summary>Update from the corner notice: the download window takes over.</summary>
+    internal void StartInstall(UpdateManifest manifest)
+    {
+        DismissNotice();
         var window = EnsureWindow(activate: true);
         if (window.State is UpdateWindowState.Downloading or UpdateWindowState.Starting)
             return;
         window.ShowAvailable(manifest);
-        if (!manual)
-            App.Tray?.ShowBalloon(UiText.Format("UpdateAvailableTitle", manifest.Version));
-    }
-
-    /// <summary>"Later": nothing is stored; the next daily check shows the window again.</summary>
-    internal void Later()
-    {
-        _offerWaiting = false;
-        Raise();
+        window.StartInstall();
     }
 
     /// <summary>"Skip this version": not offered again by automatic checks; a newer version is.</summary>
@@ -327,6 +380,12 @@ internal sealed class UpdateService : IDisposable
     internal static Action<Window>? BeforeShowForTour { get; set; }
 
     internal UpdateWindow OpenWindowForTour() => EnsureWindow(activate: false);
+
+    internal UpdateNoticeWindow OpenNoticeForTour(UpdateManifest manifest)
+    {
+        ShowNotice(manifest);
+        return _notice ?? throw new InvalidOperationException("The update notice was not created.");
+    }
 
     /// <summary>Rehearsal: an automatic check, offered as if the user were free to see it.</summary>
     internal async Task<UpdateManifest?> CheckForRehearsalAsync()

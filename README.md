@@ -83,15 +83,15 @@ page once; after that the app keeps itself up to date.
 
 How it works:
 
-- About a minute and a half after the tray app starts — including every time it is started again — and then once a
+- About 15 seconds after the tray app starts — including every time it is started again — and then once a
   day while that run stays open, it downloads two small files from the latest GitHub release of this project:
   `update.json` (version number, setup size and checksum, release notes) and its signature `update.json.sig`. The app
   only believes `update.json` if the signature matches the Folder Managing key built into the app.
-- If a newer version exists, a window shows what is new, with **Update**, **Later** and **Skip this version**.
-  The notes scroll inside the window and the buttons stay on screen. The window comes to the front, and the tray
-  names the version. It waits while you are in a full-screen app, a game, a presentation or Focus assist; the tray
-  menu also shows the update. *Later* asks again at the next check; *Skip this version* stays quiet until an even
-  newer version is out.
+- If a newer version exists, a notice titled **Available updates** stays in the corner of the screen until you
+  choose **Update** or **Later**. The tray icon keeps an orange mark until you update or skip that version.
+  **Update** opens the notes (they scroll, and the buttons stay on screen) and installs. The notice waits while you
+  are in a full-screen app, a game, a presentation or Focus assist; the tray mark is shown meanwhile.
+  *Later* asks again at the next check; *Skip this version* stays quiet until an even newer version is out.
 - **Update** downloads the setup from the same GitHub release, checks that its size and SHA-256 checksum match the
   signed `update.json`, closes the app and installs. Windows may ask for administrator rights; if you answer *No*,
   nothing changes. The app opens again when the update is done, with your settings, colors and tags.
@@ -100,7 +100,7 @@ How it works:
 What is sent: only the download requests themselves, to `github.com` (and GitHub's download servers
 `objects.githubusercontent.com` and `release-assets.githubusercontent.com`). No personal data, folder names or
 settings are sent. Like every website, GitHub sees your IP address, and the request names the app and its version
-(`User-Agent: FolderManaging/2.2.2`). The app uses the Windows proxy settings.
+(`User-Agent: FolderManaging/2.2.3`). The app uses the Windows proxy settings.
 
 To turn the checks off: **Settings → Check for updates automatically**. *Check for updates* (in Settings, on the
 About page and in the tray menu) still works when you want it. Command line:

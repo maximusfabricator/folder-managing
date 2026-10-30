@@ -132,7 +132,7 @@ static partial class Program
             var start = new DateTime(2026, 10, 29, 8, 0, 0, DateTimeKind.Utc);
             var now = start.AddSeconds(5);
             Expect(UpdateSchedule.NextCheckUtc(null, start, now) == start + UpdateSchedule.StartupDelay, "first check");
-            Expect(UpdateSchedule.StartupDelay >= TimeSpan.FromMinutes(1) && UpdateSchedule.StartupDelay <= TimeSpan.FromMinutes(2), "start delay");
+            Expect(UpdateSchedule.StartupDelay >= TimeSpan.FromSeconds(10) && UpdateSchedule.StartupDelay <= TimeSpan.FromMinutes(2), "start delay");
             Expect(UpdateSchedule.Interval == TimeSpan.FromHours(24), "interval");
             Expect(UpdateSchedule.NextCheckUtc(now.AddHours(-1), start, now) == start + UpdateSchedule.StartupDelay, "checked an hour before this start");
             Expect(UpdateSchedule.NextCheckUtc(now.AddHours(-30), start, now) == start + UpdateSchedule.StartupDelay, "overdue");

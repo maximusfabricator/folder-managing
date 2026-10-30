@@ -229,6 +229,10 @@ internal static class UiTour
         update.ShowAvailable(sample);
         await Settle(update, 700);
         Save(update, prefix + "update-available");
+        var notice = updates.OpenNoticeForTour(sample);
+        await Settle(notice, 600);
+        Save(notice, prefix + "update-notice");
+        notice.Close();
         update.ShowDownloadingForTour(sample, sample.SetupSize * 2 / 5);
         await Settle(update, 600);
         Save(update, prefix + "update-downloading");

@@ -1,0 +1,40 @@
+<!-- SPDX-License-Identifier: GPL-2.0-only -->
+<!-- Copyright (C) 2026 maximusfabricator -->
+<ui:FluentWindow x:Class="FolderManaging.Companion.UpdateNoticeWindow"
+                 xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                 xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                 xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
+                 xmlns:loc="clr-namespace:FolderManaging.Companion.Localization"
+                 Icon="pack://application:,,,/Assets/FolderManaging.ico"
+                 Title="{loc:Loc UpdateAvailableList}"
+                 Width="400" SizeToContent="Height"
+                 ResizeMode="NoResize"
+                 WindowStartupLocation="Manual"
+                 ShowInTaskbar="False"
+                 Topmost="True"
+                 ShowActivated="False"
+                 WindowBackdropType="Mica"
+                 ExtendsContentIntoTitleBar="True"
+                 Foreground="{DynamicResource TextFillColorPrimaryBrush}"
+                 TextElement.Foreground="{DynamicResource TextFillColorPrimaryBrush}"
+                 Closing="OnClosing">
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
+        <ui:TitleBar x:Name="Bar" Grid.Row="0" Title="{loc:Loc UpdateAvailableList}" ShowMaximize="False" ShowMinimize="False" />
+
+        <StackPanel x:Name="Card" Grid.Row="1" Margin="20,4,20,16">
+            <TextBlock x:Name="Headline" Style="{StaticResource FmText}" FontSize="16" FontWeight="SemiBold" TextWrapping="Wrap" />
+            <TextBlock x:Name="Body" Style="{StaticResource FmTextSecondary}" Margin="0,6,0,0" FontSize="13" LineHeight="18" TextWrapping="Wrap" />
+            <DockPanel Margin="0,16,0,0" LastChildFill="False">
+                <ui:Button x:Name="UpdateButton" DockPanel.Dock="Right" MinWidth="110" Margin="8,0,0,0" Appearance="Primary"
+                           Content="{loc:Loc Update}" Click="OnUpdateClick" />
+                <ui:Button x:Name="LaterButton" DockPanel.Dock="Right" MinWidth="110"
+                           Content="{loc:Loc UpdateLater}" Click="OnLaterClick" />
+            </DockPanel>
+        </StackPanel>
+    </Grid>
+</ui:FluentWindow>
