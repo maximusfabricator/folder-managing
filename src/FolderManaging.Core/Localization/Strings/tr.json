@@ -299,7 +299,7 @@
   "UpdateWindowTitle": "Folder Managing güncelleştirmesi",
   "UpdateCurrentVersion": "{0} sürümünü kullanıyorsunuz.",
   "UpdateAvailableList": "Kullanılabilir güncelleştirmeler",
-  "UpdateAvailableTitle": "{0} sürümü kullanılabilir",
+  "UpdateAvailableTitle": "Folder Managing {0} kullanılabilir",
   "UpdateAvailableBody": "{0} sürümünü kullanıyorsunuz. Güncelleştirme ayarlarınızı, renklerinizi ve etiketlerinizi korur ve yaklaşık bir dakika sürer.",
   "UpdateAvailableBodyShort": "Ayarlarınız, renkleriniz ve etiketleriniz korunur.",
   "UpdateWhatsNew": "Yenilikler",

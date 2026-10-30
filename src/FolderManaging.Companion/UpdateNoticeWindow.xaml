@@ -6,7 +6,7 @@
                  xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
                  xmlns:loc="clr-namespace:FolderManaging.Companion.Localization"
                  Icon="pack://application:,,,/Assets/FolderManaging.ico"
-                 Title="{loc:Loc UpdateAvailableList}"
+                 Title="{loc:Loc UpdateWindowTitle}"
                  Width="400" SizeToContent="Height"
                  ResizeMode="NoResize"
                  WindowStartupLocation="Manual"
@@ -24,7 +24,7 @@
             <RowDefinition Height="Auto" />
         </Grid.RowDefinitions>
 
-        <ui:TitleBar x:Name="Bar" Grid.Row="0" Title="{loc:Loc UpdateAvailableList}" ShowMaximize="False" ShowMinimize="False" />
+        <ui:TitleBar x:Name="Bar" Grid.Row="0" Title="{loc:Loc UpdateWindowTitle}" ShowMaximize="False" ShowMinimize="False" />
 
         <StackPanel x:Name="Card" Grid.Row="1" Margin="20,4,20,16">
             <TextBlock x:Name="Headline" Style="{StaticResource FmText}" FontSize="16" FontWeight="SemiBold" TextWrapping="Wrap" />

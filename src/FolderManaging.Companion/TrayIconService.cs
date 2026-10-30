@@ -48,7 +48,7 @@ internal sealed class TrayIconService : IDisposable
         menu.Items.Add(new ToolStripSeparator());
         if (_updateVersion is not null)
         {
-            var update = menu.Items.Add(UiText.Get("UpdateAvailableList"), null, (_, _) => UpdateService.Current?.ShowAvailable());
+            var update = menu.Items.Add(UiText.Get("UpdateWindowTitle"), null, (_, _) => UpdateService.Current?.ShowAvailable());
             update.Font = new Font(update.Font, System.Drawing.FontStyle.Bold);
         }
 

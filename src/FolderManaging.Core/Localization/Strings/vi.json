@@ -299,7 +299,7 @@
   "UpdateWindowTitle": "Cập nhật Folder Managing",
   "UpdateCurrentVersion": "Bạn đang dùng phiên bản {0}.",
   "UpdateAvailableList": "Bản cập nhật có sẵn",
-  "UpdateAvailableTitle": "Đã có phiên bản {0}",
+  "UpdateAvailableTitle": "Đã có Folder Managing {0}",
   "UpdateAvailableBody": "Bạn đang dùng phiên bản {0}. Bản cập nhật giữ nguyên cài đặt, màu và thẻ của bạn, và mất khoảng một phút.",
   "UpdateAvailableBodyShort": "Cài đặt, màu và thẻ của bạn được giữ nguyên.",
   "UpdateWhatsNew": "Có gì mới",

@@ -299,7 +299,7 @@
   "UpdateWindowTitle": "Folder Managing update",
   "UpdateCurrentVersion": "You have version {0}.",
   "UpdateAvailableList": "Available updates",
-  "UpdateAvailableTitle": "Version {0} is available",
+  "UpdateAvailableTitle": "Folder Managing {0} is available",
   "UpdateAvailableBody": "You have version {0}. The update keeps your settings, colors and tags and takes about a minute.",
   "UpdateAvailableBodyShort": "Your settings, colors and tags are kept.",
   "UpdateWhatsNew": "What's new",

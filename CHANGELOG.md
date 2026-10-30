@@ -1,5 +1,13 @@
 # Changelog
 
+## 2.2.5 — 2026-10-30
+
+### Changed
+
+- **The update notice names Folder Managing.** The corner notice was titled "Available updates", so it was not
+  obvious which program it belonged to. It is now "Folder Managing update", and the line under it names Folder Managing
+  and the version.
+
 ## 2.2.4 — 2026-10-30
 
 ### Changed

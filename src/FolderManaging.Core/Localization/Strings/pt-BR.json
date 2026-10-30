@@ -299,7 +299,7 @@
   "UpdateWindowTitle": "Atualização do Folder Managing",
   "UpdateCurrentVersion": "Você tem a versão {0}.",
   "UpdateAvailableList": "Atualizações disponíveis",
-  "UpdateAvailableTitle": "A versão {0} está disponível",
+  "UpdateAvailableTitle": "O Folder Managing {0} está disponível",
   "UpdateAvailableBody": "Você tem a versão {0}. A atualização mantém suas configurações, cores e marcas e leva cerca de um minuto.",
   "UpdateAvailableBodyShort": "Suas configurações, cores e marcas são mantidas.",
   "UpdateWhatsNew": "Novidades",

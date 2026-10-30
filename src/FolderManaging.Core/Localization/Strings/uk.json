@@ -299,7 +299,7 @@
   "UpdateWindowTitle": "Оновлення Folder Managing",
   "UpdateCurrentVersion": "У вас версія {0}.",
   "UpdateAvailableList": "Доступні оновлення",
-  "UpdateAvailableTitle": "Доступна версія {0}",
+  "UpdateAvailableTitle": "Для Folder Managing доступна версія {0}",
   "UpdateAvailableBody": "У вас версія {0}. Оновлення збереже ваші настройки, кольори й теги та триватиме приблизно хвилину.",
   "UpdateAvailableBodyShort": "Ваші настройки, кольори й теги буде збережено.",
   "UpdateWhatsNew": "Що нового",

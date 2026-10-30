@@ -299,7 +299,7 @@
   "UpdateWindowTitle": "Folder Managing 업데이트",
   "UpdateCurrentVersion": "현재 버전은 {0}입니다.",
   "UpdateAvailableList": "사용 가능한 업데이트",
-  "UpdateAvailableTitle": "버전 {0}을(를) 사용할 수 있음",
+  "UpdateAvailableTitle": "Folder Managing {0}을(를) 사용할 수 있음",
   "UpdateAvailableBody": "현재 버전은 {0}입니다. 업데이트해도 설정, 색, 태그는 그대로 유지되며 약 1분 정도 걸립니다.",
   "UpdateAvailableBodyShort": "설정, 색, 태그는 그대로 유지됩니다.",
   "UpdateWhatsNew": "새로운 기능",

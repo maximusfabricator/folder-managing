@@ -299,7 +299,7 @@
   "UpdateWindowTitle": "Folder Managing अपडेट",
   "UpdateCurrentVersion": "आपके पास संस्करण {0} है।",
   "UpdateAvailableList": "उपलब्ध अपडेट",
-  "UpdateAvailableTitle": "संस्करण {0} उपलब्ध है",
+  "UpdateAvailableTitle": "Folder Managing {0} उपलब्ध है",
   "UpdateAvailableBody": "आपके पास संस्करण {0} है। अपडेट आपकी सेटिंग्स, रंग और टैग बनाए रखता है और इसमें लगभग एक मिनट लगता है।",
   "UpdateAvailableBodyShort": "आपकी सेटिंग्स, रंग और टैग बने रहते हैं।",
   "UpdateWhatsNew": "नया क्या है",

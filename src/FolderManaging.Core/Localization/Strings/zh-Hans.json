@@ -299,7 +299,7 @@
   "UpdateWindowTitle": "Folder Managing 更新",
   "UpdateCurrentVersion": "你当前的版本为 {0}。",
   "UpdateAvailableList": "可用更新",
-  "UpdateAvailableTitle": "版本 {0} 现已可用",
+  "UpdateAvailableTitle": "Folder Managing {0} 现已可用",
   "UpdateAvailableBody": "你当前的版本为 {0}。更新会保留你的设置、颜色和标签，大约需要一分钟。",
   "UpdateAvailableBodyShort": "你的设置、颜色和标签将保留。",
   "UpdateWhatsNew": "新增功能",

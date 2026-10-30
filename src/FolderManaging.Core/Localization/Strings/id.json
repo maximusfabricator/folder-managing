@@ -299,7 +299,7 @@
   "UpdateWindowTitle": "Pembaruan Folder Managing",
   "UpdateCurrentVersion": "Anda memiliki versi {0}.",
   "UpdateAvailableList": "Pembaruan yang tersedia",
-  "UpdateAvailableTitle": "Versi {0} tersedia",
+  "UpdateAvailableTitle": "Folder Managing {0} tersedia",
   "UpdateAvailableBody": "Anda memiliki versi {0}. Pembaruan ini mempertahankan pengaturan, warna, dan tag Anda, dan memerlukan waktu sekitar satu menit.",
   "UpdateAvailableBodyShort": "Pengaturan, warna, dan tag Anda tetap ada.",
   "UpdateWhatsNew": "Yang baru",

@@ -87,7 +87,7 @@ How it works:
   day while that run stays open, it downloads two small files from the latest GitHub release of this project:
   `update.json` (version number, setup size and checksum, release notes) and its signature `update.json.sig`. The app
   only believes `update.json` if the signature matches the Folder Managing key built into the app.
-- If a newer version exists, a notice titled **Available updates** stays in the corner of the screen until you
+- If a newer version exists, a notice titled **Folder Managing update** stays in the corner of the screen until you
   choose **Update** or **Later**. The tray icon keeps an orange mark until you update or skip that version.
   **Update** opens the notes (they scroll, and the buttons stay on screen) and installs. The notice waits while you
   are in a full-screen app, a game, a presentation or Focus assist; the tray mark is shown meanwhile.
@@ -100,7 +100,7 @@ How it works:
 What is sent: only the download requests themselves, to `github.com` (and GitHub's download servers
 `objects.githubusercontent.com` and `release-assets.githubusercontent.com`). No personal data, folder names or
 settings are sent. Like every website, GitHub sees your IP address, and the request names the app and its version
-(`User-Agent: FolderManaging/2.2.4`). The app uses the Windows proxy settings.
+(`User-Agent: FolderManaging/2.2.5`). The app uses the Windows proxy settings.
 
 To turn the checks off: **Settings → Check for updates automatically**. *Check for updates* (in Settings, on the
 About page and in the tray menu) still works when you want it. Command line:
