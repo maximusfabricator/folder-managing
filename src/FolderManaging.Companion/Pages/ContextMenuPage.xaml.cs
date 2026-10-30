@@ -337,7 +337,7 @@ public partial class ContextMenuPage : System.Windows.Controls.UserControl
     }
 
     static List<MenuColorPreset> PresetRows(AppStateDocument doc) =>
-        doc.MenuColors.Where(r => r is not null && !string.IsNullOrWhiteSpace(r.Id)).ToList();
+        HiddenColors.OfferedPresets(doc).ToList();
 
     static List<MenuTagPreset> TagRows(AppStateDocument doc) =>
         doc.MenuTags.Where(t => t is not null && !string.IsNullOrWhiteSpace(t.Id)).ToList();

@@ -40,12 +40,27 @@ public partial class ColorsPage : System.Windows.Controls.UserControl
 
         BindColors();
         BindSchemes();
+        BindHidden();
     }
 
     void BindSchemes()
     {
         var doc = CompanionState.Document;
-        SchemeItems.ItemsSource = ColorSchemes.All.Select(s => new SchemeRow(s, ColorSchemes.IsEnabled(doc, s.Id))).ToList();
+        SchemeItems.ItemsSource = ColorSchemes.All
+            .Select(s => new SchemeRow(s, ColorSchemes.IsEnabled(doc, s.Id), doc))
+            .ToList();
+    }
+
+    void BindHidden()
+    {
+        var doc = CompanionState.Document;
+        HiddenColors.Normalize(doc);
+        var rows = doc.HiddenColorIds
+            .Select(id => new HiddenColorRow(id, HiddenColors.Title(doc, id), HiddenColors.Hex(doc, id)))
+            .ToList();
+        HiddenItems.ItemsSource = rows;
+        HiddenSection.Visibility = rows.Count == 0 ? Visibility.Collapsed : Visibility.Visible;
+        HiddenHeader.Text = UiText.Format("HiddenColorsTitle", rows.Count);
     }
 
     async void OnSchemeToggleClick(object sender, RoutedEventArgs e)
@@ -86,6 +101,7 @@ public partial class ColorsPage : System.Windows.Controls.UserControl
         var editingId = _editing?.Id;
         BindColors();
         BindSchemes();
+        BindHidden();
         if (editingId is null)
             return;
 
@@ -103,7 +119,7 @@ public partial class ColorsPage : System.Windows.Controls.UserControl
     void BindColors()
     {
         var doc = CompanionState.Document;
-        _colors = new ObservableCollection<MenuColorPreset>(doc.MenuColors);
+        _colors = new ObservableCollection<MenuColorPreset>(HiddenColors.OfferedPresets(doc));
         ColorItems.ItemsSource = _colors;
         ClickTrace.Step($"ColorsPage loaded count={_colors.Count}");
     }
@@ -150,21 +166,12 @@ public partial class ColorsPage : System.Windows.Controls.UserControl
         if (sender is not FrameworkElement fe || fe.Tag is not MenuColorPreset preset)
             return;
 
-        using var scope = ClickTrace.Begin("companion", "delete-color", detail: preset.Id);
-        if (FolderColors.PresetRgb.ContainsKey(preset.Id))
-        {
-            ClickTrace.Fail($"builtin color cannot be deleted id={preset.Id}");
-            scope.MarkFinished();
-            FmMessageBox.Show(
-                Window.GetWindow(this),
-                UiText.Get("BuiltInColor"),
-                "Folder Managing",
-                System.Windows.MessageBoxButton.OK,
-                System.Windows.MessageBoxImage.Information);
+        if (!HiddenColors.CanDelete(preset.Id))
             return;
-        }
 
+        using var scope = ClickTrace.Begin("companion", "delete-color", detail: preset.Id);
         var doc = CompanionState.Document;
+        HiddenColors.Restore(doc, preset.Id);
         var id = preset.Id;
         doc.MenuColors.RemoveAll(c => string.Equals(c.Id, id, StringComparison.OrdinalIgnoreCase));
         if (_colors is not null)
@@ -180,6 +187,55 @@ public partial class ColorsPage : System.Windows.Controls.UserControl
             CloseEditor();
         CompanionState.Save();
         ClickTrace.Ok($"deleted id={preset.Id}");
+        scope.MarkFinished();
+    }
+
+    void OnHideColorClick(object sender, RoutedEventArgs e)
+    {
+        if (sender is not FrameworkElement fe || fe.Tag is not MenuColorPreset preset)
+            return;
+        HideColor(preset.Id);
+    }
+
+    void OnHideSchemeColorClick(object sender, RoutedEventArgs e)
+    {
+        if (sender is not FrameworkElement { Tag: string id })
+            return;
+        HideColor(id);
+    }
+
+    void HideColor(string id)
+    {
+        using var scope = ClickTrace.Begin("companion", "hide-color", detail: id);
+        if (!HiddenColors.CanHide(id))
+        {
+            scope.MarkFinished();
+            return;
+        }
+
+        HiddenColors.Hide(CompanionState.Document, id);
+        if (_editing is not null && string.Equals(_editing.Id, id, StringComparison.OrdinalIgnoreCase))
+            CloseEditor();
+        CompanionState.Save();
+        BindColors();
+        BindSchemes();
+        BindHidden();
+        ClickTrace.Ok($"hidden id={id}");
+        scope.MarkFinished();
+    }
+
+    void OnRestoreColorClick(object sender, RoutedEventArgs e)
+    {
+        if (sender is not FrameworkElement { Tag: string id })
+            return;
+
+        using var scope = ClickTrace.Begin("companion", "restore-color", detail: id);
+        HiddenColors.Restore(CompanionState.Document, id);
+        CompanionState.Save();
+        BindColors();
+        BindSchemes();
+        BindHidden();
+        ClickTrace.Ok($"restored id={id}");
         scope.MarkFinished();
     }
 
@@ -366,22 +422,43 @@ public partial class ColorsPage : System.Windows.Controls.UserControl
     }
 }
 
-/// <summary>A built-in color scheme on the Colors page: name, swatches and whether it is on.</summary>
-public sealed class SchemeRow(ColorScheme scheme, bool isOn)
+/// <summary>A built-in color scheme on the Colors page: name, swatches still offered, and whether it is on.</summary>
+public sealed class SchemeRow
 {
-    public ColorScheme Scheme { get; } = scheme;
+    public SchemeRow(ColorScheme scheme, bool isOn, AppStateDocument doc)
+    {
+        Scheme = scheme;
+        IsOn = isOn;
+        Swatches = HiddenColors.OfferedSchemeColors(doc, scheme)
+            .Select(c => new SchemeSwatch(c.Id, UiText.Get(c.NameKey), c.Color))
+            .ToList();
+    }
+
+    public ColorScheme Scheme { get; }
 
     public string Name => Scheme.Name;
 
-    public bool IsOn { get; } = isOn;
+    public bool IsOn { get; }
 
-    public IReadOnlyList<SchemeSwatch> Swatches { get; } = scheme.Colors
-        .Select(c => new SchemeSwatch(UiText.Get(c.NameKey), c.Color))
-        .ToList();
+    public IReadOnlyList<SchemeSwatch> Swatches { get; }
 }
 
-public sealed class SchemeSwatch(string name, Color color)
+/// <summary>One hidden color, with Restore.</summary>
+public sealed class HiddenColorRow(string id, string title, string hexRgb)
 {
+    public string Id { get; } = id;
+
+    public string Title { get; } = title;
+
+    public bool TitleIsHex => Title.StartsWith('#');
+
+    public string HexRgb { get; } = hexRgb;
+}
+
+public sealed class SchemeSwatch(string id, string name, Color color)
+{
+    public string Id { get; } = id;
+
     public string Name { get; } = name;
 
     public System.Windows.Media.Brush Brush { get; } =

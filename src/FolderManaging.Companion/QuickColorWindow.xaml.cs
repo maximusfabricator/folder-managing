@@ -72,6 +72,8 @@ public partial class QuickColorWindow : FluentWindow
         foreach (var token in doc.RecentColors ?? [])
         {
             var isRgb = token.StartsWith("rgb-", StringComparison.OrdinalIgnoreCase);
+            if (!isRgb && HiddenColors.IsHidden(doc, token))
+                continue;
             System.Drawing.Color c;
             var found = isRgb
                 ? MenuColorHex.TryParse(token[4..], out c)
@@ -94,10 +96,14 @@ public partial class QuickColorWindow : FluentWindow
     /// <summary>One row per color scheme that is turned on: its name, then its colors.</summary>
     void FillSchemes()
     {
-        var schemes = ColorSchemes.Enabled(CompanionState.Document);
+        var doc = CompanionState.Document;
+        var schemes = ColorSchemes.Enabled(doc)
+            .Select(s => (Scheme: s, Colors: HiddenColors.OfferedSchemeColors(doc, s).ToList()))
+            .Where(s => s.Colors.Count > 0)
+            .ToList();
         SchemesPanel.Visibility = schemes.Count == 0 ? Visibility.Collapsed : Visibility.Visible;
         SchemeList.Children.Clear();
-        foreach (var scheme in schemes)
+        foreach (var (scheme, colors) in schemes)
         {
             var row = new System.Windows.Controls.Grid { Margin = new Thickness(0, 0, 0, 4) };
             row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(120) });
@@ -114,7 +120,7 @@ public partial class QuickColorWindow : FluentWindow
             row.Children.Add(name);
 
             var swatches = new WrapPanel { Orientation = System.Windows.Controls.Orientation.Horizontal };
-            foreach (var color in scheme.Colors)
+            foreach (var color in colors)
             {
                 var c = color.Color;
                 swatches.Children.Add(Swatch(color.Id, MediaColor.FromRgb(c.R, c.G, c.B), ColorSchemes.DisplayName(scheme, color)));

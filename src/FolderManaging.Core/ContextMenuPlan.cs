@@ -153,7 +153,7 @@ public static class ContextMenuPlan
 
     static void AppendPresets(List<MenuLine> list, AppStateDocument doc)
     {
-        foreach (var row in doc.MenuColors.Where(r => r is not null && !string.IsNullOrWhiteSpace(r.Id)))
+        foreach (var row in HiddenColors.OfferedPresets(doc))
             list.Add(new MenuLine($"color-{row.Id}", ColorTitle(row), "color", row.Id, MenuLineIcon.Preset));
     }
 
@@ -161,8 +161,11 @@ public static class ContextMenuPlan
     {
         foreach (var scheme in ColorSchemes.Enabled(doc))
         {
+            var colors = HiddenColors.OfferedSchemeColors(doc, scheme).ToList();
+            if (colors.Count == 0)
+                continue;
             list.Add(new MenuLine($"scheme-{scheme.Id}", $"── {scheme.Name} ──", NoopKind, Icon: MenuLineIcon.None));
-            foreach (var color in scheme.Colors)
+            foreach (var color in colors)
             {
                 list.Add(new MenuLine($"color-{color.Id}", UiText.Format("ColorLine", UiText.Get(color.NameKey)),
                     "color", color.Id, MenuLineIcon.Preset));
@@ -183,6 +186,8 @@ public static class ContextMenuPlan
                 continue;
             }
 
+            if (HiddenColors.IsHidden(doc, token))
+                continue;
             var name = ColorName(doc, token);
             if (name is null)
                 continue;

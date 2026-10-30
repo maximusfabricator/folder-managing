@@ -98,7 +98,11 @@ public static class ColorSchemes
     public static IReadOnlyList<ColorScheme> Enabled(AppStateDocument doc) =>
         All.Where(s => IsEnabled(doc, s.Id)).ToList();
 
-    /// <summary>Turns a scheme on or off. Ids this version does not know (from a newer one) are kept.</summary>
+    /// <summary>
+    /// Turns a scheme on or off. Ids this version does not know (from a newer one) are kept.
+    /// Does not change <see cref="AppStateDocument.HiddenColorIds"/>: a hidden color of this scheme stays hidden
+    /// when the scheme is turned on again.
+    /// </summary>
     public static void SetEnabled(AppStateDocument doc, string schemeId, bool enabled)
     {
         doc.EnabledColorSchemes ??= new List<string>();

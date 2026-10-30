@@ -179,6 +179,7 @@ static partial class Program
 
         FeatureChecks();
         SchemeChecks();
+        HideChecks();
         await UpdateChecks();
 
         Console.WriteLine(_failed == 0 ? "ALL PASSED" : $"{_failed} FAILED");

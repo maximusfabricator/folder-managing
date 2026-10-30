@@ -26,14 +26,16 @@ using MessageBoxImage = System.Windows.MessageBoxImage;
 namespace FolderManaging.Companion.Diagnostics;
 
 /// <summary>
-/// Developer builds only. <c>--ui-tour DIR [--theme light|dark] [--off-screen]</c> opens every page and dialog, saves
-/// a PNG of each into DIR and exits; FM_UI_LANGUAGE picks the language. Texts that do not fit go to DIR\cut-text.txt.
+/// Developer builds only. <c>--ui-tour DIR [--theme light|dark] [--off-screen] [--only-colors]</c> opens every page and
+/// dialog, saves a PNG of each into DIR and exits; FM_UI_LANGUAGE picks the language. <c>--only-colors</c> saves just
+/// the Folder colors page. Texts that do not fit go to DIR\cut-text.txt.
 /// <c>--off-screen</c> keeps the windows off screen and has WPF draw the PNGs, without the system backdrop and without
 /// the native message box. The tour only looks: it presses nothing that saves.
 /// </summary>
 internal static class UiTour
 {
     static bool _offScreen;
+    static bool _colorsOnly;
 
     static readonly (string Name, Type Page)[] Pages =
     [
@@ -75,6 +77,7 @@ internal static class UiTour
             return false;
 
         _offScreen = args.Contains("--off-screen", StringComparer.OrdinalIgnoreCase);
+        _colorsOnly = args.Contains("--only-colors", StringComparer.OrdinalIgnoreCase);
         AppThemeService.TourTheme = ValueAfter(args, "--theme")?.ToLowerInvariant() switch
         {
             "dark" => AppThemePreference.Dark,
@@ -115,6 +118,13 @@ internal static class UiTour
         KeepOffScreen(main);
         main.Show();
         await Settle(main, 1500);
+
+        if (_colorsOnly)
+        {
+            await SaveColors(main, prefix);
+            main.Close();
+            return;
+        }
 
         foreach (var (name, page) in Pages)
         {
@@ -311,6 +321,29 @@ internal static class UiTour
         }
 
         window.Close();
+    }
+
+    static async Task SaveColors(MainWindow main, string prefix)
+    {
+        main.NavigateTo(typeof(Pages.ColorsPage));
+        await Settle(main, 900);
+        Save(main, prefix + "colors");
+        if (ScrollToEnd(main))
+        {
+            await Settle(main, 500);
+            Save(main, prefix + "colors-end");
+        }
+
+        main.Width = main.MinWidth;
+        main.Height = main.MinHeight;
+        main.NavigateTo(typeof(Pages.ColorsPage));
+        await Settle(main, 900);
+        Save(main, prefix + "colors-small");
+        if (ScrollToEnd(main))
+        {
+            await Settle(main, 400);
+            Save(main, prefix + "colors-small-end");
+        }
     }
 
     static async Task Settle(Window window, int milliseconds)

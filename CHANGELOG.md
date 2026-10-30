@@ -1,5 +1,16 @@
 # Changelog
 
+## 2.2.1 — 2026-10-30
+
+### Fixed
+
+- **Built-in colors can be hidden.** On Folder colors, Red, Blue, Green and Purple had a Delete button that did
+  nothing. It is now Hide. A hidden color leaves the list, the Explorer menu and the Quick color window. A folder
+  that already uses it keeps that color. Bring it back with Restore, under Hidden colors.
+- Each color of a color scheme has Hide too. Hiding it is kept when you turn that scheme off and on again. Turning
+  a scheme on does not bring a hidden color back.
+- Colors you added yourself still have Delete.
+
 ## 2.2.0 — 2026-10-29
 
 ### New

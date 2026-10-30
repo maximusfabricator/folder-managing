@@ -29,6 +29,19 @@ public sealed class AppStateDocument
     public List<string> EnabledColorSchemes { get; set; } = new();
 
     /// <summary>
+    /// Color ids the user hid (since 2.2.1). A missing or empty list means nothing is hidden.
+    /// Hiding only takes a color out of what is offered. Folders already painted keep their color.
+    /// Turning a scheme off and on does not change this list. Files from 2.2.0 have no field; 2.2.0 ignores it when reading.
+    /// </summary>
+    public List<string> HiddenColorIds
+    {
+        get => _hiddenColorIds;
+        set => _hiddenColorIds = value ?? new List<string>();
+    }
+
+    List<string> _hiddenColorIds = new();
+
+    /// <summary>
     /// <c>true</c> after the four default tags have been offered once.
     /// A missing value on an already saved file means the user already had a tag list, so defaults must not return.
     /// </summary>

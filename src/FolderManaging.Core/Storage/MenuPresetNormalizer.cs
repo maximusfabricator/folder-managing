@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 // Copyright (C) 2026 maximusfabricator
 
+using FolderManaging.Core;
 using FolderManaging.Core.Models;
 
 namespace FolderManaging.Core.Storage;
@@ -16,6 +17,7 @@ public static class MenuPresetNormalizer
         doc.MenuColors ??= new List<MenuColorPreset>();
         doc.MenuTags ??= new List<MenuTagPreset>();
         doc.EnabledColorSchemes ??= new List<string>();
+        HiddenColors.Normalize(doc);
 
         MigrateLegacyColorIds(doc);
 

@@ -36,6 +36,9 @@ public sealed class SettingsExport
     /// <summary>"Check for updates automatically"; <c>null</c> in files from before 2.2.0.</summary>
     public bool? CheckForUpdates { get; set; }
 
+    /// <summary>Hidden color ids; <c>null</c> in files from before 2.2.1, which leave the current choice alone.</summary>
+    public List<string>? HiddenColorIds { get; set; }
+
     public List<ExportedFolder> Folders { get; set; } = new();
 }
 
@@ -69,6 +72,7 @@ public static class SettingsTransfer
             Language = doc.Language,
             AutoElevateProtectedFolders = doc.AutoElevateProtectedFolders,
             CheckForUpdates = doc.CheckForUpdates,
+            HiddenColorIds = (doc.HiddenColorIds ?? []).ToList(),
             Folders = doc.Folders
                 .Where(StateMigration.HasCustomization)
                 .Select(f => new ExportedFolder { Path = f.Path, ColorToken = f.ColorToken, Tags = f.Tags.ToList() })
@@ -145,6 +149,8 @@ public static class SettingsTransfer
             doc.AutoElevateProtectedFolders = elevate;
         if (import.CheckForUpdates is { } checkUpdates)
             doc.CheckForUpdates = checkUpdates;
+        if (import.HiddenColorIds is not null)
+            doc.HiddenColorIds = import.HiddenColorIds.Where(id => !string.IsNullOrWhiteSpace(id)).ToList();
 
         var changed = new List<string>();
         var missing = new List<string>();
