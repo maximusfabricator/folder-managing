@@ -26,7 +26,7 @@ public partial class UpdateNoticeWindow : FluentWindow
         UiDirection.Apply(this);
         _service = service;
         _manifest = manifest;
-        Headline.Text = UiText.Format("UpdateAvailableTitle", manifest.Version);
+        Headline.Text = UiText.Format("UpdateStatusAvailable", manifest.Version);
         Body.Text = UiText.Format("UpdateAvailableBody", UpdateVersion.Current.ToString());
         ContentRendered += (_, _) => Fit();
         SizeChanged += (_, _) => Fit();

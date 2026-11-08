@@ -265,9 +265,9 @@ internal static class UiTour
     {
         var notes = Environment.GetEnvironmentVariable("FM_TOUR_NOTES") is { Length: > 0 } file && File.Exists(file)
             ? File.ReadAllText(file)
-            : "## 2.2.0\n\n### New\n\n- **Update notifications.** The app tells you when a new version is out.\n- Settings → Check for updates automatically.";
-        return new UpdateManifest(new UpdateVersion(2, 2, 0), "v2.2.0", "FolderManaging-Setup-2.2.0.exe", 136_000_000,
-            new string('0', 64), UpdateEndpoint.ReleasesPageUrl + "/tag/v2.2.0", DateTimeOffset.UtcNow, notes);
+            : "## 9.9.9\n\n### New\n\n- **Update notifications.** The app tells you when a new version is out.\n- Settings → Check for updates automatically.";
+        return new UpdateManifest(new UpdateVersion(9, 9, 9), "v9.9.9", "FolderManaging-Setup-9.9.9.exe", 136_000_000,
+            new string('0', 64), UpdateEndpoint.ReleasesPageUrl + "/tag/v9.9.9", DateTimeOffset.UtcNow, notes);
     }
 
     /// <summary>

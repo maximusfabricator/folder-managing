@@ -24,15 +24,48 @@
             <RowDefinition Height="Auto" />
         </Grid.RowDefinitions>
 
-        <ui:TitleBar x:Name="Bar" Grid.Row="0" Title="{loc:Loc UpdateWindowTitle}" ShowMaximize="False" ShowMinimize="False" />
+        <ui:TitleBar x:Name="Bar" Grid.Row="0" Title="{loc:Loc UpdateWindowTitle}" ShowMaximize="False" ShowMinimize="False">
+            <ui:TitleBar.Icon>
+                <ui:ImageIcon Source="pack://application:,,,/Assets/logo.png" />
+            </ui:TitleBar.Icon>
+        </ui:TitleBar>
 
         <StackPanel x:Name="Card" Grid.Row="1" Margin="20,4,20,16">
-            <TextBlock x:Name="Headline" Style="{StaticResource FmText}" FontSize="16" FontWeight="SemiBold" TextWrapping="Wrap" />
-            <TextBlock x:Name="Body" Style="{StaticResource FmTextSecondary}" Margin="0,6,0,0" FontSize="13" LineHeight="18" TextWrapping="Wrap" />
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="*" />
+                </Grid.ColumnDefinitions>
+                <Border Grid.Column="0" Width="56" Height="56" Padding="7" CornerRadius="10"
+                        VerticalAlignment="Top"
+                        Background="{DynamicResource CardBackgroundFillColorDefaultBrush}"
+                        BorderBrush="{DynamicResource CardStrokeColorDefaultBrush}"
+                        BorderThickness="1">
+                    <Image Source="pack://application:,,,/Assets/logo.png" Stretch="Uniform" />
+                </Border>
+                <StackPanel Grid.Column="1" Margin="14,0,0,0" VerticalAlignment="Center">
+                    <TextBlock Style="{StaticResource FmTextSecondary}" FontSize="12" FontWeight="SemiBold"
+                               Opacity="0.8" Text="Folder Managing" />
+                    <TextBlock x:Name="Headline" Style="{StaticResource FmText}" Margin="0,2,0,0"
+                               FontSize="17" FontWeight="SemiBold" TextWrapping="Wrap" />
+                    <Grid Margin="0,7,0,0">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+                        <ui:SymbolIcon Grid.Column="0" Margin="0,1,7,0" VerticalAlignment="Top"
+                                       FontSize="16" Symbol="ArrowCircleDown24" />
+                        <TextBlock x:Name="Body" Grid.Column="1" Style="{StaticResource FmTextSecondary}"
+                                   FontSize="13" LineHeight="18" TextWrapping="Wrap" />
+                    </Grid>
+                </StackPanel>
+            </Grid>
             <DockPanel Margin="0,16,0,0" LastChildFill="False">
                 <ui:Button x:Name="UpdateButton" DockPanel.Dock="Right" MinWidth="110" Margin="8,0,0,0" Appearance="Primary"
+                           Icon="{ui:SymbolIcon Symbol=ArrowDownload24}"
                            Content="{loc:Loc Update}" Click="OnUpdateClick" />
                 <ui:Button x:Name="LaterButton" DockPanel.Dock="Right" MinWidth="110"
+                           Icon="{ui:SymbolIcon Symbol=Clock24}"
                            Content="{loc:Loc UpdateLater}" Click="OnLaterClick" />
             </DockPanel>
         </StackPanel>

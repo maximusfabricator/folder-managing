@@ -4,9 +4,9 @@
 
 ### Changed
 
-- **The update notice names Folder Managing.** The corner notice was titled "Available updates", so it was not
-  obvious which program it belonged to. It is now "Folder Managing update", and the line under it names Folder Managing
-  and the version.
+- **The update notice clearly belongs to Folder Managing.** The generic "Available updates" card did not make clear
+  which program had an update. It now has the Folder Managing name and logo in the title and in the card, shows the
+  installed and available versions, and uses clock and download icons for *Later* and *Update*.
 
 ## 2.2.4 — 2026-10-30
 
