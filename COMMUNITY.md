@@ -17,10 +17,11 @@ tags, custom colors, Explorer integration, and manual settings import/export.
 
 ## Store and Pro editions
 
-Future Store releases may include a free tier and an optional paid Pro upgrade
+Folder Managing 3.x is developed separately for Microsoft Store distribution.
+The Store app will include a free tier and an optional one-time Pro Lifetime upgrade
 for convenience features such as synchronization, profiles, scheduled backups,
-and automatic rules. Their source and license are separate from Community
-Edition.
+and automatic rules. Its source is private and its license is separate from
+Community Edition; this does not change the GPL terms of any published 2.x release.
 
 Contributions to this repository are accepted under GPL-2.0-only. They are not
 automatically licensed for a closed-source edition and will not be copied into
