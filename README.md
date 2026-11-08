@@ -1,8 +1,12 @@
-# Folder Managing
+# Folder Managing Community Edition
 
 Folder colors, tags and a **Folder Manager** item in the Windows 11 File Explorer right-click menu.
 
 Created by **maximusfabricator** · Free software under the [GNU General Public License, version 2](LICENSE)
+
+This repository is the free and open-source **2.x Community Edition**. It remains maintained; see
+[the Community policy](COMMUNITY.md). Future Microsoft Store and optional Pro editions have a separate
+codebase and license.
 
 ## Features
 
@@ -211,4 +215,5 @@ WPF UI, Vanara and the .NET libraries, all under the MIT License, are listed wit
 ## Contributing
 
 Bug reports, translations and pull requests are welcome. By contributing, you agree that your contribution is licensed
-under GPL-2.0-only, like the rest of the project.
+under GPL-2.0-only, like the rest of the project. A contribution is not automatically licensed for any closed-source
+edition and will not be copied into one without your separate permission.
